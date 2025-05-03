@@ -1,0 +1,14 @@
+[
+    {
+      "login": "player1",
+      "password": "pass123",
+      "skinUrl": "https://yourusername.github.io/skins/player1.png",
+      "capeUrl": "https://yourusername.github.io/capes/player1_cape.png"
+    },
+    {
+      "login": "player2",
+      "password": "pass456",
+      "skinUrl": null,
+      "capeUrl": null
+    }
+]

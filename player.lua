@@ -1,4 +1,4 @@
-local basalt = dofile("/basalt.lua")
+local basalt = require("basalt")
 local http = require("http")
 local dfpwm = require("cc.audio.dfpwm")
 

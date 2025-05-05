@@ -83,8 +83,13 @@ playButton:onClick(function()
         statusLabel:setText("Status: Already playing")
         return
     end
+
     loop = loopCheckbox:getValue()
-    parallel.waitForAny(function() playAudio(audioUrl) end, function() while playing do os.sleep(0.1) end end)
+    playing = true
+
+    parallel.waitForAll(function()
+        playAudio(audioUrl)
+    end)
 end)
 
 stopButton:onClick(function()

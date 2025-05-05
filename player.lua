@@ -1,6 +1,8 @@
 local basalt = require("basalt")
-local http = require("http")
 local dfpwm = require("cc.audio.dfpwm")
+
+local args = { ... }
+local audioUrl = args[1]
 
 local main = basalt.createFrame()
 main:setBackground(colors.black)
@@ -11,13 +13,9 @@ main:addLabel()
     :setForeground(colors.white)
 
 main:addLabel()
-    :setText("URL:")
+    :setText("URL: " .. (audioUrl or "не задан"))
     :setPosition(2, 3)
     :setForeground(colors.white)
-
-local urlInput = main:addInput()
-    :setPosition(7, 3)
-    :setSize(30, 1)
 
 local statusLabel = main:addLabel()
     :setText("Status: Idle")
@@ -51,7 +49,7 @@ local function playAudio(url)
     repeat
         local response, err = http.get({ url = url, binary = true })
         if not response then
-            statusLabel:setText("Status: Download error: " .. (err or "Unknown"))
+            statusLabel:setText("Status: Error: " .. (err or "Unknown"))
             return
         end
 
@@ -77,17 +75,16 @@ local function playAudio(url)
 end
 
 playButton:onClick(function()
+    if not audioUrl then
+        statusLabel:setText("Status: URL не указан")
+        return
+    end
     if playing then
         statusLabel:setText("Status: Already playing")
         return
     end
-    local url = urlInput:getValue()
-    if url == "" then
-        statusLabel:setText("Status: Please enter a URL")
-        return
-    end
     loop = loopCheckbox:getValue()
-    parallel.waitForAny(function() playAudio(url) end, function() while playing do os.sleep(0.1) end end)
+    parallel.waitForAny(function() playAudio(audioUrl) end, function() while playing do os.sleep(0.1) end end)
 end)
 
 stopButton:onClick(function()

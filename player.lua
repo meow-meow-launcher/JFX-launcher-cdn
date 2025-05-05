@@ -1,4 +1,4 @@
-local basalt = require("basalt")
+local basalt = dofile("/basalt.lua")
 local dfpwm = require("cc.audio.dfpwm")
 
 local args = { ... }
@@ -7,6 +7,12 @@ local audioUrl = args[1]
 local main = basalt.createFrame()
 main:setBackground(colors.black)
 
+-- Состояния
+local isLooping = false
+local isPlaying = false
+local playThread = nil
+
+-- UI элементы
 main:addLabel()
     :setText("Audio Player")
     :setPosition(2, 1)
@@ -17,88 +23,89 @@ main:addLabel()
     :setPosition(2, 3)
     :setForeground(colors.white)
 
-local statusLabel = main:addLabel()
-    :setText("Status: Idle")
-    :setPosition(2, 5)
-    :setForeground(colors.white)
-
-local loopCheckbox = main:addCheckbox()
+local loopButton = main:addButton()
     :setText("Loop")
-    :setPosition(2, 7)
+    :setPosition(2, 5)
+    :setSize(8, 3)
+    :setBackground(colors.gray)
 
 local playButton = main:addButton()
     :setText("Play")
-    :setPosition(2, 9)
+    :setPosition(12, 5)
+    :setSize(8, 3)
+    :setBackground(colors.gray)
 
 local stopButton = main:addButton()
     :setText("Stop")
-    :setPosition(10, 9)
+    :setPosition(22, 5)
+    :setSize(8, 3)
+    :setBackground(colors.gray)
 
-local playing = false
-local loop = false
+-- Обновление цвета кнопок
+local function updateButtonStates()
+    loopButton:setBackground(isLooping and colors.orange or colors.gray)
+    playButton:setBackground(isPlaying and colors.green or colors.gray)
+    stopButton:setBackground(isPlaying and colors.red or colors.gray)
+end
 
+-- Воспроизведение
 local function playAudio(url)
-    local speakers = { peripheral.find("speaker") }
-    if #speakers == 0 then
-        statusLabel:setText("Status: No speakers found")
-        return
-    end
-
     local decoder = dfpwm.make_decoder()
 
     repeat
-        local response, err = http.get({ url = url, binary = true })
-        if not response then
-            statusLabel:setText("Status: Error: " .. (err or "Unknown"))
-            return
+        local speakers = { peripheral.find("speaker") }
+        if #speakers == 0 then
+            print("No speakers found.")
+            break
         end
 
-        statusLabel:setText("Status: Playing")
-        playing = true
+        local res, err = http.get({ url = url, binary = true })
+        if not res then
+            print("Download failed: " .. (err or "unknown"))
+            break
+        end
 
         while true do
-            local chunk = response.read(16 * 1024)
-            if not chunk or not playing then break end
+            local chunk = res.read(16 * 1024)
+            if not chunk or not isPlaying then break end
+
             local buffer = decoder(chunk)
-            for _, speaker in ipairs(speakers) do
-                while not speaker.playAudio(buffer) do
+            for _, spk in ipairs(speakers) do
+                while not spk.playAudio(buffer) do
                     os.pullEvent("speaker_audio_empty")
                 end
             end
         end
 
-        response.close()
-    until not loop or not playing
+        res.close()
+    until not isLooping or not isPlaying
 
-    statusLabel:setText("Status: Idle")
-    playing = false
+    isPlaying = false
+    updateButtonStates()
 end
 
+-- Кнопка Loop
+loopButton:onClick(function()
+    isLooping = not isLooping
+    updateButtonStates()
+end)
+
+-- Кнопка Play
 playButton:onClick(function()
-    if not audioUrl then
-        statusLabel:setText("Status: URL не указан")
-        return
-    end
-    if playing then
-        statusLabel:setText("Status: Already playing")
-        return
-    end
-
-    loop = loopCheckbox:getValue()
-    playing = true
-
-    parallel.waitForAll(function()
-        playAudio(audioUrl)
-    end)
+    if isPlaying or not audioUrl then return end
+    isPlaying = true
+    updateButtonStates()
+    playThread = function() playAudio(audioUrl) end
+    parallel.waitForAny(playThread, function() while isPlaying do os.sleep(0.1) end end)
 end)
 
+-- Кнопка Stop
 stopButton:onClick(function()
-    if playing then
-        playing = false
-        statusLabel:setText("Status: Stopped")
-    else
-        statusLabel:setText("Status: Not playing")
+    if isPlaying then
+        isPlaying = false
+        updateButtonStates()
     end
 end)
 
+updateButtonStates()
 basalt.autoUpdate()

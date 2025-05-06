@@ -1,61 +1,61 @@
--- Подключение библиотеки Basalt
+-- Include Basalt library
 local basalt = require("basalt")
 
--- Поиск принтера
+-- Find printer
 local printer = peripheral.find("printer")
 local printerInitialized = false
 
--- Создание основного фрейма
+-- Create main frame
 local mainFrame = basalt.createFrame()
 
--- Создание элементов GUI
+-- Create GUI elements
 local inputField = mainFrame:addInput()
     :setPosition(2, 2)
     :setSize(30, 1)
-    :setDefaultText("Введите текст")
+    :setDefaultText("Enter text")
 
 local initButton = mainFrame:addButton()
     :setPosition(2, 4)
     :setSize(14, 1)
-    :setText("Инициализировать")
+    :setText("Initialize")
 
 local printButton = mainFrame:addButton()
     :setPosition(18, 4)
     :setSize(14, 1)
-    :setText("Печатать")
+    :setText("Print")
 
 local statusLabel = mainFrame:addLabel()
     :setPosition(2, 6)
     :setSize(30, 1)
-    :setText("Статус: Ожидание")
+    :setText("Status: Waiting")
 
--- Функция инициализации принтера
+-- Function to initialize printer
 local function initializePrinter()
     if printer then
         printerInitialized = true
-        initButton:setText("Принтер готов")
+        initButton:setText("Printer Ready")
         printButton:setEnabled(true)
-        statusLabel:setText("Статус: Принтер готов")
+        statusLabel:setText("Status: Printer Ready")
     else
         printer = peripheral.find("printer")
         if not printer then
-            initButton:setText("Принтер не найден")
-            statusLabel:setText("Статус: Принтер не найден")
+            initButton:setText("Printer Not Found")
+            statusLabel:setText("Status: Printer Not Found")
         end
     end
 end
 
--- Функция печати
+-- Function to print text
 local function printText()
     if not printerInitialized then
-        statusLabel:setText("Статус: Инициализируйте принтер")
+        statusLabel:setText("Status: Initialize Printer")
         return
     end
 
-    local textToPrint = inputField:getValue() or "Пустой текст"
+    local textToPrint = inputField:getValue() or "Empty text"
 
     if not printer.newPage() then
-        statusLabel:setText("Статус: Нет бумаги/чернил")
+        statusLabel:setText("Status: No Paper/Ink")
         return
     end
 
@@ -63,14 +63,14 @@ local function printText()
     printer.write(textToPrint)
 
     if not printer.endPage() then
-        statusLabel:setText("Статус: Ошибка печати")
+        statusLabel:setText("Status: Print Error")
         return
     end
 
-    statusLabel:setText("Статус: Печать завершена")
+    statusLabel:setText("Status: Print Complete")
 end
 
--- Обработка событий кнопок
+-- Handle button events
 initButton:onClick(function()
     initializePrinter()
 end)
@@ -79,5 +79,5 @@ printButton:onClick(function()
     printText()
 end)
 
--- Запуск Basalt
+-- Run Basalt
 basalt.autoUpdate()

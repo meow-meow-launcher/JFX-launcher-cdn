@@ -4,7 +4,7 @@ local speaker = peripheral.find("speaker")
 -- Создаём основной фрейм
 local main = basalt.createFrame()
 
--- Добавляем элементы интерфейса (только статус и кнопку)
+-- Добавляем элементы интерфейса
 local statusLabel = main:addLabel()
 statusLabel:setPosition(2, 2)
 statusLabel:setText("Status: Idle")
@@ -93,7 +93,7 @@ local function returnToStart(x, y, z, dir)
 end
 
 -- Функция копания
-local function digArea(width, length, height)
+local function digArea(length, height, width)
     setStatus("Mining started")
     local x, z, y = 0, 0, 0
     local direction = "right"
@@ -145,23 +145,24 @@ end
 
 -- Обработчик клика по кнопке
 startButton:onClick(function()
-    -- Запрашиваем значения через консоль
-    setStatus("Enter values in console")
-    print("Enter Width:")
-    local w = tonumber(io.read()) or 0
-    print("Enter Length:")
-    local l = tonumber(io.read()) or 0
-    print("Enter Height:")
-    local h = tonumber(io.read()) or 0
-    
-    -- Проверяем, что значения корректны
-    if not w or not l or not h or w <= 0 or l <= 0 or h <= 0 then
-        setStatus("Invalid input: values must be greater than 0, got w=" .. tostring(w) .. ", l=" .. tostring(l) .. ", h=" .. tostring(h))
+    -- Проверяем аргументы команды
+    if #arg < 3 then
+        setStatus("Usage: mine <length> <height> <width>")
         return
     end
 
-    setStatus("Started mining " .. w .. "x" .. l .. "x" .. h)
-    digArea(w, l, h)
+    local length = tonumber(arg[1])
+    local height = tonumber(arg[2])
+    local width = tonumber(arg[3])
+
+    -- Проверяем, что значения корректны
+    if not length or not height or not width or length <= 0 or height <= 0 or width <= 0 then
+        setStatus("Invalid input: values must be greater than 0, got l=" .. tostring(length) .. ", h=" .. tostring(height) .. ", w=" .. tostring(width))
+        return
+    end
+
+    setStatus("Started mining " .. length .. "x" .. height .. "x" .. width)
+    digArea(length, height, width)
 end)
 
 -- Автообновление интерфейса

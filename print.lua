@@ -11,22 +11,22 @@ local mainFrame = basalt.createFrame()
 -- Create GUI elements
 local inputField = mainFrame:addInput()
     :setPosition(2, 2)
-    :setSize(40, 3) -- Larger input field (width: 40, height: 3)
-    :setDefaultText("Enter text")
+    :setSize(48, 15) -- Large input field (width: 48, height: 15) for a full page
+    :setDefaultText("Enter text (use Enter for paragraphs)")
 
 local initButton = mainFrame:addButton()
-    :setPosition(2, 6)
+    :setPosition(2, 18)
     :setSize(14, 1)
     :setText("Initialize")
 
 local printButton = mainFrame:addButton()
-    :setPosition(18, 6)
+    :setPosition(18, 18)
     :setSize(14, 1)
     :setText("Print")
 
 local statusLabel = mainFrame:addLabel()
-    :setPosition(2, 8)
-    :setSize(40, 1)
+    :setPosition(2, 20)
+    :setSize(48, 1)
     :setText("Status: Waiting")
 
 -- Function to initialize printer
@@ -44,7 +44,7 @@ local function initializePrinter()
     end
 end
 
--- Function to print text
+-- Function to print text with paragraphs
 local function printText()
     if not printerInitialized then
         statusLabel:setText("Status: Initialize Printer")
@@ -59,7 +59,22 @@ local function printText()
     end
 
     printer.setPageTitle("Basalt Print")
-    printer.write(textToPrint)
+
+    -- Split text into lines to handle paragraphs
+    local lines = {}
+    for line in textToPrint:gmatch("([^\n]*)\n?") do
+        if line ~= "" then
+            table.insert(lines, line)
+        end
+    end
+
+    -- Print each line, respecting paragraphs
+    local cursorY = 1
+    for _, line in ipairs(lines) do
+        printer.setCursorPos(1, cursorY)
+        printer.write(line)
+        cursorY = cursorY + 1
+    end
 
     if not printer.endPage() then
         statusLabel:setText("Status: Print Error")

@@ -1,111 +1,97 @@
+-- Include Basalt library
 local basalt = require("basalt")
-local dfpwm = require("cc.audio.dfpwm")
 
-local args = { ... }
-local audioUrl = args[1]
+-- Find printer
+local printer = peripheral.find("printer")
+local printerInitialized = false
 
-local main = basalt.createFrame()
-main:setBackground(colors.black)
+-- Create main frame
+local mainFrame = basalt.createFrame()
 
--- Состояния
-local isLooping = false
-local isPlaying = false
-local playThread = nil
+-- Create GUI elements
+local inputField = mainFrame:addInput()
+    :setPosition(2, 2)
+    :setSize(48, 15) -- Large input field (width: 48, height: 15) for a full page
+    :setDefaultText("Enter text (use Enter for paragraphs)")
 
--- UI элементы
-main:addLabel()
-    :setText("Audio Player")
-    :setPosition(2, 1)
-    :setForeground(colors.white)
+local initButton = mainFrame:addButton()
+    :setPosition(2, 18)
+    :setSize(14, 1)
+    :setText("Initialize")
 
-main:addLabel()
-    :setText("URL: " .. (audioUrl or "не задан"))
-    :setPosition(2, 3)
-    :setForeground(colors.white)
+local printButton = mainFrame:addButton()
+    :setPosition(18, 18)
+    :setSize(14, 1)
+    :setText("Print")
 
-local loopButton = main:addButton()
-    :setText("Loop")
-    :setPosition(2, 5)
-    :setSize(8, 3)
-    :setBackground(colors.gray)
+local statusLabel = mainFrame:addLabel()
+    :setPosition(2, 20)
+    :setSize(48, 1)
+    :setText("Status: Waiting")
 
-local playButton = main:addButton()
-    :setText("Play")
-    :setPosition(12, 5)
-    :setSize(8, 3)
-    :setBackground(colors.gray)
-
-local stopButton = main:addButton()
-    :setText("Stop")
-    :setPosition(22, 5)
-    :setSize(8, 3)
-    :setBackground(colors.gray)
-
--- Обновление цвета кнопок
-local function updateButtonStates()
-    loopButton:setBackground(isLooping and colors.orange or colors.gray)
-    playButton:setBackground(isPlaying and colors.green or colors.gray)
-    stopButton:setBackground(isPlaying and colors.red or colors.gray)
-end
-
--- Воспроизведение
-local function playAudio(url)
-    local decoder = dfpwm.make_decoder()
-
-    repeat
-        local speakers = { peripheral.find("speaker") }
-        if #speakers == 0 then
-            print("No speakers found.")
-            break
+-- Function to initialize printer
+local function initializePrinter()
+    if printer then
+        printerInitialized = true
+        initButton:setText("Printer Ready")
+        statusLabel:setText("Status: Printer Ready")
+    else
+        printer = peripheral.find("printer")
+        if not printer then
+            initButton:setText("Printer Not Found")
+            statusLabel:setText("Status: Printer Not Found")
         end
-
-        local res, err = http.get({ url = url, binary = true })
-        if not res then
-            print("Download failed: " .. (err or "unknown"))
-            break
-        end
-
-        while true do
-            local chunk = res.read(16 * 1024)
-            if not chunk or not isPlaying then break end
-
-            local buffer = decoder(chunk)
-            for _, spk in ipairs(speakers) do
-                while not spk.playAudio(buffer) do
-                    os.pullEvent("speaker_audio_empty")
-                end
-            end
-        end
-
-        res.close()
-    until not isLooping or not isPlaying
-
-    isPlaying = false
-    updateButtonStates()
-end
-
--- Кнопка Loop
-loopButton:onClick(function()
-    isLooping = not isLooping
-    updateButtonStates()
-end)
-
--- Кнопка Play
-playButton:onClick(function()
-    if isPlaying or not audioUrl then return end
-    isPlaying = true
-    updateButtonStates()
-    playThread = function() playAudio(audioUrl) end
-    parallel.waitForAny(playThread, function() while isPlaying do os.sleep(0.1) end end)
-end)
-
--- Кнопка Stop
-stopButton:onClick(function()
-    if isPlaying then
-        isPlaying = false
-        updateButtonStates()
     end
+end
+
+-- Function to print text with paragraphs
+local function printText()
+    if not printerInitialized then
+        statusLabel:setText("Status: Initialize Printer")
+        return
+    end
+
+    local textToPrint = inputField:getValue() or "Empty text"
+
+    if not printer.newPage() then
+        statusLabel:setText("Status: No Paper/Ink")
+        return
+    end
+
+    printer.setPageTitle("Basalt Print")
+
+    -- Split text into lines to handle paragraphs
+    local lines = {}
+    for line in textToPrint:gmatch("([^\n]*)\n?") do
+        if line ~= "" then
+            table.insert(lines, line)
+        end
+    end
+
+    -- Print each line, respecting paragraphs
+    local cursorY = 1
+    for _, line in ipairs(lines) do
+        printer.setCursorPos(1, cursorY)
+        printer.write(line)
+        cursorY = cursorY + 1
+    end
+
+    if not printer.endPage() then
+        statusLabel:setText("Status: Print Error")
+        return
+    end
+
+    statusLabel:setText("Status: Print Complete")
+end
+
+-- Handle button events
+initButton:onClick(function()
+    initializePrinter()
 end)
 
-updateButtonStates()
+printButton:onClick(function()
+    printText()
+end)
+
+-- Run Basalt
 basalt.autoUpdate()

@@ -1,97 +1,151 @@
--- Include Basalt library
-local basalt = require("basalt")
+-- Инициализация периферий
+local monitor = peripheral.find("monitor")
+local term = term -- Терминал компьютера
+if monitor then
+    monitor.setTextScale(0.5)
+end
 
--- Find printer
-local printer = peripheral.find("printer")
-local printerInitialized = false
+-- Состояния плеера
+local isPlaying = false
+local isLooping = false
+local url = ""
 
--- Create main frame
-local mainFrame = basalt.createFrame()
+-- Получение URL из аргументов командной строки
+local args = {...}
+if #args > 0 then
+    url = args[1]
+end
 
--- Create GUI elements
-local inputField = mainFrame:addInput()
-    :setPosition(2, 2)
-    :setSize(48, 15) -- Large input field (width: 48, height: 15) for a full page
-    :setDefaultText("Enter text (use Enter for paragraphs)")
+-- Цвета
+local colors = {
+    green = colors.green,
+    yellow = colors.yellow,
+    red = colors.red,
+    gray = colors.gray,
+    white = colors.white,
+    black = colors.black
+}
 
-local initButton = mainFrame:addButton()
-    :setPosition(2, 18)
-    :setSize(14, 1)
-    :setText("Initialize")
-
-local printButton = mainFrame:addButton()
-    :setPosition(18, 18)
-    :setSize(14, 1)
-    :setText("Print")
-
-local statusLabel = mainFrame:addLabel()
-    :setPosition(2, 20)
-    :setSize(48, 1)
-    :setText("Status: Waiting")
-
--- Function to initialize printer
-local function initializePrinter()
-    if printer then
-        printerInitialized = true
-        initButton:setText("Printer Ready")
-        statusLabel:setText("Status: Printer Ready")
+-- Отрисовка интерфейса на указанном устройстве
+local function drawInterface(device)
+    device.clear()
+    device.setCursorPos(1, 1)
+    
+    -- Поле URL
+    device.setTextColor(colors.white)
+    device.write("URL: " .. url)
+    
+    -- Кнопки
+    local buttonY = 3
+    device.setCursorPos(2, buttonY)
+    
+    -- Кнопка Play
+    if isPlaying then
+        device.setBackgroundColor(colors.green)
     else
-        printer = peripheral.find("printer")
-        if not printer then
-            initButton:setText("Printer Not Found")
-            statusLabel:setText("Status: Printer Not Found")
+        device.setBackgroundColor(colors.gray)
+    end
+    device.write(" Play ")
+    
+    -- Кнопка Stop
+    device.setCursorPos(10, buttonY)
+    if not isPlaying then
+        device.setBackgroundColor(colors.red)
+    else
+        device.setBackgroundColor(colors.gray)
+    end
+    device.write(" Stop ")
+    
+    -- Кнопка Loop
+    device.setCursorPos(18, buttonY)
+    if isLooping and isPlaying then
+        device.setBackgroundColor(colors.yellow)
+    else
+        device.setBackgroundColor(colors.gray)
+    end
+    device.write(" Loop ")
+    
+    device.setBackgroundColor(colors.black)
+end
+
+-- Обновление интерфейса на всех устройствах
+local function updateInterface()
+    drawInterface(term)
+    if monitor then
+        drawInterface(monitor)
+    end
+end
+
+-- Обработка ввода URL
+local function inputURL(device)
+    device.setCursorPos(6, 1)
+    device.setTextColor(colors.white)
+    device.setBackgroundColor(colors.black)
+    url = read()
+    updateInterface()
+end
+
+-- Воспроизведение DFPM
+local function playDFPM()
+    if url ~= "" then
+        isPlaying = true
+        -- Здесь должен быть код для воспроизведения DFPM
+        updateInterface()
+    end
+end
+
+-- Остановка воспроизведения
+local function stopDFPM()
+    isPlaying = false
+    -- Здесь должен быть код для остановки воспроизведения
+    updateInterface()
+end
+
+-- Переключение режима повтора
+local function toggleLoop()
+    if isPlaying then
+        isLooping = not isLooping
+        updateInterface()
+    end
+end
+
+-- Обработка событий кликов
+local function handleInput()
+    while true do
+        local event, param1, x, y = os.pullEvent()
+        
+        if event == "monitor_touch" and monitor then
+            if y == 3 then
+                if x >= 2 and x <= 7 then -- Play
+                    playDFPM()
+                elseif x >= 10 and x <= 15 then -- Stop
+                    stopDFPM()
+                elseif x >= 18 and x <= 23 then -- Loop
+                    toggleLoop()
+                end
+            elseif y == 1 then -- URL input
+                inputURL(monitor)
+            end
+        elseif event == "mouse_click" then
+            if y == 3 then
+                if x >= 2 and x <= 7 then -- Play
+                    playDFPM()
+                elseif x >= 10 and x <= 15 then -- Stop
+                    stopDFPM()
+                elseif x >= 18 and x <= 23 then -- Loop
+                    toggleLoop()
+                end
+            elseif y == 1 then -- URL input
+                inputURL(term)
+            end
         end
     end
 end
 
--- Function to print text with paragraphs
-local function printText()
-    if not printerInitialized then
-        statusLabel:setText("Status: Initialize Printer")
-        return
-    end
-
-    local textToPrint = inputField:getValue() or "Empty text"
-
-    if not printer.newPage() then
-        statusLabel:setText("Status: No Paper/Ink")
-        return
-    end
-
-    printer.setPageTitle("Basalt Print")
-
-    -- Split text into lines to handle paragraphs
-    local lines = {}
-    for line in textToPrint:gmatch("([^\n]*)\n?") do
-        if line ~= "" then
-            table.insert(lines, line)
-        end
-    end
-
-    -- Print each line, respecting paragraphs
-    local cursorY = 1
-    for _, line in ipairs(lines) do
-        printer.setCursorPos(1, cursorY)
-        printer.write(line)
-        cursorY = cursorY + 1
-    end
-
-    if not printer.endPage() then
-        statusLabel:setText("Status: Print Error")
-        return
-    end
-
-    statusLabel:setText("Status: Print Complete")
+-- Основной цикл
+local function main()
+    updateInterface()
+    handleInput()
 end
 
--- Handle button events
-initButton:onClick(function()
-    initializePrinter()
-end)
-
-printButton:onClick(function()
-    printText()
-end)
-
--- Run Basalt
-basalt.autoUpdate()
+main()

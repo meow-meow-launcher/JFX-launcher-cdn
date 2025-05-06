@@ -1,8 +1,10 @@
 local basalt = require("basalt")
 local speaker = peripheral.find("speaker")
 
+-- Создаём основной фрейм
 local main = basalt.createFrame()
 
+-- Добавляем элементы интерфейса
 main:addLabel():setText("Width:"):setPosition(2, 2)
 local widthInput = main:addTextfield()
 widthInput:setPosition(12, 2)
@@ -30,6 +32,7 @@ startButton:setPosition(2, 10)
 startButton:setSize(18, 1)
 startButton:setText("Start mining")
 
+-- Список ненужных предметов
 local trashItems = {
     ["minecraft:cobblestone"] = true,
     ["minecraft:dirt"] = true,
@@ -37,11 +40,30 @@ local trashItems = {
     ["minecraft:granite"] = true
 }
 
+-- Функция установки статуса с звуковой индикацией
 local function setStatus(text)
-    statusLabel:setText("Status: " .. text)
-    if speaker then speaker.speak(text) end
+    if statusLabel then
+        statusLabel:setText("Status: " .. text)
+    else
+        print("Status: " .. text)
+    end
+    if speaker then
+        if text:find("Mining started") then
+            speaker.playSound("pling", 1.0, 0.5) -- Начало копания: низкий писк
+        elseif text:find("Bedrock") then
+            speaker.playSound("note.bass", 0.8, 0.3) -- Обнаружена bedrock: низкий бас
+        elseif text:find("Returning") then
+            speaker.playSound("note.harp", 1.2, 0.4) -- Возвращение: арфа
+        elseif text:find("Returned to start") then
+            speaker.playSound("note.pling", 1.5, 0.5) -- Вернулась: высокий писк
+        elseif text:find("Started mining") then
+            speaker.playSound("note.bell", 1.0, 0.6) -- Код выполнен: звон
+        end
+        speaker.speak(text)
+    end
 end
 
+-- Функция сброса мусора
 local function dropTrash()
     for i = 1, 16 do
         turtle.select(i)
@@ -52,30 +74,44 @@ local function dropTrash()
     end
 end
 
+-- Функция возвращения в стартовую позицию
 local function returnToStart(x, y, z, dir)
     setStatus("Returning")
-
+    
+    -- Поднимаемся на нужную высоту
     for i = 1, y do turtle.up() end
-
+    
+    -- Корректируем направление
     if dir == "right" then
         turtle.turnLeft()
     else
         turtle.turnRight()
     end
-
-    for i = 1, math.abs(x) do turtle.forward() end
-
+    
+    -- Двигаемся по X
+    for i = 1, math.abs(x) do
+        turtle.forward()
+    end
+    
+    -- Корректируем направление обратно
     if dir == "right" then
         turtle.turnLeft()
     else
         turtle.turnRight()
     end
-
-    for i = 1, math.abs(z) do turtle.forward() end
-
-    setStatus("Done")
+    
+    -- Двигаемся по Z
+    for i = 1, math.abs(z) do
+        turtle.forward()
+    end
+    
+    -- Опускаемся вниз
+    for i = 1, y do turtle.down() end
+    
+    setStatus("Returned to start")
 end
 
+-- Функция копания
 local function digArea(width, length, height)
     setStatus("Mining started")
     local x, z, y = 0, 0, 0
@@ -84,7 +120,9 @@ local function digArea(width, length, height)
     for h = 1, height do
         for l = 1, length do
             for w = 1, width - 1 do
-                turtle.dig()
+                if turtle.detect() then
+                    turtle.dig()
+                end
                 turtle.forward()
                 if direction == "right" then x = x + 1 else x = x - 1 end
             end
@@ -92,18 +130,31 @@ local function digArea(width, length, height)
             if l < length then
                 if l % 2 == 1 then
                     turtle.turnRight()
-                    turtle.dig()
+                    if turtle.detect() then turtle.dig() end
                     turtle.forward()
                     turtle.turnRight()
                     direction = "left"
                     z = z + 1
                 else
                     turtle.turnLeft()
-                    turtle.dig()
+                    if turtle.detect() then turtle.dig() end
                     turtle.forward()
                     turtle.turnLeft()
                     direction = "right"
                     z = z + 1
+                end
+            end
+
+            -- Проверяем инвентарь и ставим факел каждые 5 блоков
+            if l % 5 == 0 then
+                for i = 1, 16 do
+                    turtle.select(i)
+                    local item = turtle.getItemDetail()
+                    if item and item.name == "minecraft:torch" then
+                        turtle.placeDown()
+                        setStatus("Placed torch at " .. x .. "," .. z)
+                        break
+                    end
                 end
             end
         end
@@ -121,18 +172,21 @@ local function digArea(width, length, height)
 
     dropTrash()
     returnToStart(x, y, z, direction)
+    setStatus("Code executed")
 end
 
+-- Обработчик клика по кнопке
 startButton:onClick(function()
     local w = tonumber(widthInput:getValue())
     local l = tonumber(lengthInput:getValue())
     local h = tonumber(heightInput:getValue())
-    if not w or not l or not h then
+    if not w or not l or not h or w <= 0 or l <= 0 or h <= 0 then
         setStatus("Invalid input")
         return
     end
     setStatus("Started mining " .. w .. "x" .. l .. "x" .. h)
-    -- Тут можешь вставить свою функцию копания
+    digArea(w, l, h)
 end)
 
+-- Автообновление интерфейса
 basalt.autoUpdate()

@@ -4,28 +4,13 @@ local speaker = peripheral.find("speaker")
 -- Создаём основной фрейм
 local main = basalt.createFrame()
 
--- Добавляем элементы интерфейса без начальных значений
-main:addLabel():setText("Width:"):setPosition(2, 2)
-local widthInput = main:addTextfield()
-widthInput:setPosition(12, 2)
-widthInput:setSize(5, 1)
-
-main:addLabel():setText("Length:"):setPosition(2, 4)
-local lengthInput = main:addTextfield()
-lengthInput:setPosition(12, 4)
-lengthInput:setSize(5, 1)
-
-main:addLabel():setText("Height:"):setPosition(2, 6)
-local heightInput = main:addTextfield()
-heightInput:setPosition(12, 6)
-heightInput:setSize(5, 1)
-
+-- Добавляем элементы интерфейса (только статус и кнопку)
 local statusLabel = main:addLabel()
-statusLabel:setPosition(2, 8)
+statusLabel:setPosition(2, 2)
 statusLabel:setText("Status: Idle")
 
 local startButton = main:addButton()
-startButton:setPosition(2, 10)
+startButton:setPosition(2, 4)
 startButton:setSize(18, 1)
 startButton:setText("Start mining")
 
@@ -160,35 +145,14 @@ end
 
 -- Обработчик клика по кнопке
 startButton:onClick(function()
-    -- Получаем значения
-    local wRaw = widthInput:getValue() or ""
-    local lRaw = lengthInput:getValue() or ""
-    local hRaw = heightInput:getValue() or ""
-    
-    -- Извлекаем только цифры
-    local wStr = wRaw:match("^%d+$")
-    local lStr = lRaw:match("^%d+$")
-    local hStr = hRaw:match("^%d+$")
-    
-    -- Отладочный вывод
-    print("Raw values - Width: '" .. tostring(wRaw) .. "' (" .. type(wRaw) .. "), Length: '" .. tostring(lRaw) .. "' (" .. type(lRaw) .. "), Height: '" .. tostring(hRaw) .. "' (" .. type(hRaw) .. ")")
-    print("Matched - Width: '" .. tostring(wStr) .. "', Length: '" .. tostring(lStr) .. "', Height: '" .. tostring(hStr) .. "'")
-
-    -- Если значения не получены, запрашиваем через консоль
-    local w, l, h
-    if not wStr or not lStr or not hStr then
-        setStatus("GUI input failed, switching to console input")
-        print("Enter Width:")
-        w = tonumber(io.read()) or 0
-        print("Enter Length:")
-        l = tonumber(io.read()) or 0
-        print("Enter Height:")
-        h = tonumber(io.read()) or 0
-    else
-        w = tonumber(wStr)
-        l = tonumber(lStr)
-        h = tonumber(hStr)
-    end
+    -- Запрашиваем значения через консоль
+    setStatus("Enter values in console")
+    print("Enter Width:")
+    local w = tonumber(io.read()) or 0
+    print("Enter Length:")
+    local l = tonumber(io.read()) or 0
+    print("Enter Height:")
+    local h = tonumber(io.read()) or 0
     
     -- Проверяем, что значения корректны
     if not w or not l or not h or w <= 0 or l <= 0 or h <= 0 then

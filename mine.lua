@@ -173,18 +173,29 @@ end
 
 -- Обработчик клика по кнопке
 startButton:onClick(function()
-    local w = tonumber(widthInput:getValue():match("%d+"))
-    local l = tonumber(lengthInput:getValue():match("%d+"))
-    local h = tonumber(heightInput:getValue():match("%d+"))
+    -- Получаем значения и очищаем их от пробелов и лишних символов
+    local wRaw = widthInput:getValue() or ""
+    local lRaw = lengthInput:getValue() or ""
+    local hRaw = heightInput:getValue() or ""
+    
+    -- Очищаем строки и преобразуем в числа, используем значение по умолчанию 1
+    local w = tonumber(wRaw:gsub("%s+", "")) or 1
+    local l = tonumber(lRaw:gsub("%s+", "")) or 1
+    local h = tonumber(hRaw:gsub("%s+", "")) or 1
+
     -- Отладочный вывод
-    print("Width: " .. tostring(w) .. ", Length: " .. tostring(l) .. ", Height: " .. tostring(h))
-    if not w or not l or not h or w <= 0 or l <= 0 or h <= 0 then
-        setStatus("Invalid input")
+    print("Raw values - Width: '" .. wRaw .. "', Length: '" .. lRaw .. "', Height: '" .. hRaw .. "'")
+    print("Processed - Width: " .. w .. ", Length: " .. l .. ", Height: " .. h)
+
+    -- Проверяем, что значения корректны
+    if w <= 0 or l <= 0 or h <= 0 then
+        setStatus("Invalid input: values must be greater than 0")
         return
     end
+
     setStatus("Started mining " .. w .. "x" .. l .. "x" .. h)
     digArea(w, l, h)
 end)
 
 -- Автообновление интерфейса
-basalt.autoUpdate()
+basalt.auto zwrócić

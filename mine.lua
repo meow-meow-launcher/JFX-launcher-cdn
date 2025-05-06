@@ -173,23 +173,23 @@ end
 
 -- Обработчик клика по кнопке
 startButton:onClick(function()
-    -- Получаем значения и очищаем их от пробелов и лишних символов
+    -- Получаем значения и очищаем их
     local wRaw = widthInput:getValue() or ""
     local lRaw = lengthInput:getValue() or ""
     local hRaw = heightInput:getValue() or ""
     
-    -- Очищаем строки и преобразуем в числа, используем значение по умолчанию 1
-    local w = tonumber(wRaw:gsub("%s+", "")) or 1
-    local l = tonumber(lRaw:gsub("%s+", "")) or 1
-    local h = tonumber(hRaw:gsub("%s+", "")) or 1
-
+    -- Очищаем строки и преобразуем в числа
+    local w = tonumber((wRaw or ""):gsub("%s+", ""))
+    local l = tonumber((lRaw or ""):gsub("%s+", ""))
+    local h = tonumber((hRaw or ""):gsub("%s+", ""))
+    
     -- Отладочный вывод
-    print("Raw values - Width: '" .. wRaw .. "', Length: '" .. lRaw .. "', Height: '" .. hRaw .. "'")
-    print("Processed - Width: " .. w .. ", Length: " .. l .. ", Height: " .. h)
+    print("Raw values - Width: '" .. tostring(wRaw) .. "' (" .. type(wRaw) .. "), Length: '" .. tostring(lRaw) .. "' (" .. type(lRaw) .. "), Height: '" .. tostring(hRaw) .. "' (" .. type(hRaw) .. ")")
+    print("Processed - Width: " .. tostring(w) .. " (" .. type(w) .. "), Length: " .. tostring(l) .. " (" .. type(l) .. "), Height: " .. tostring(h) .. " (" .. type(h) .. ")")
 
     -- Проверяем, что значения корректны
-    if w <= 0 or l <= 0 or h <= 0 then
-        setStatus("Invalid input: values must be greater than 0")
+    if not w or not l or not h or w <= 0 or l <= 0 or h <= 0 then
+        setStatus("Invalid input: values must be greater than 0, got w=" .. tostring(w) .. ", l=" .. tostring(l) .. ", h=" .. tostring(h))
         return
     end
 
@@ -198,4 +198,4 @@ startButton:onClick(function()
 end)
 
 -- Автообновление интерфейса
-basalt.auto zwrócić
+basalt.autoUpdate()

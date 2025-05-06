@@ -61,7 +61,7 @@ end
 local function tryForward()
     while turtle.detect() do
         if not turtle.dig() then
-            return false -- Likely hit bedrock
+            return false -- Likely hit bedrock or unbreakable block
         end
         if not hasInventorySpace() then
             manageInventory()
@@ -72,10 +72,11 @@ end
 
 -- Move down with digging
 local function tryDown()
+    print("Trying to move down, current Y: " .. currentY)
     while turtle.detectDown() do
         if not turtle.digDown() then
+            print("Cannot dig down, likely bedrock.")
             playSound("minecraft:block.anvil.land") -- Signal bedrock hit
-            print("Hit bedrock, stopping descent.")
             return false
         end
         if not hasInventorySpace() then
@@ -84,9 +85,12 @@ local function tryDown()
     end
     if turtle.down() then
         currentY = currentY - 1
+        print("Moved down, new Y: " .. currentY)
         return true
+    else
+        print("Failed to move down.")
+        return false
     end
-    return false
 end
 
 -- Move up
@@ -112,7 +116,6 @@ local function returnToStart()
     -- Return to starting Y level
     while currentY < startY do
         tryUp()
-        currentY = currentY + 1
     end
     while currentY > startY do
         if not turtle.down() then break end
@@ -135,7 +138,7 @@ end
 -- Check and refuel if needed
 local function checkFuel()
     if turtle.getFuelLevel() < (length * width * depth) + 50 then
-        print("Low fuel! Refuel with at least "..((length * width * depth) + 50).." units.")
+        print("Low fuel! Refuel with at least " .. ((length * width * depth) + 50) .. " units.")
         for slot = 1, 16 do
             if turtle.getItemCount(slot) > 0 then
                 turtle.select(slot)
@@ -155,7 +158,7 @@ end
 -- Main mining function
 local function mine()
     playSound("minecraft:block.note_block.bell") -- Signal start
-    print("Starting mining operation: "..length.."x"..depth.."x"..width)
+    print("Starting mining operation: " .. length .. "x" .. depth .. "x" .. width)
     
     -- Initialize starting position
     startY = 0
@@ -167,6 +170,7 @@ local function mine()
             -- Dig down to depth or bedrock
             for y = 1, depth do
                 if not tryDown() then
+                    print("Stopped at Y: " .. currentY .. ", returning up.")
                     while currentY < startY do
                         tryUp()
                     end

@@ -3,18 +3,18 @@ local speaker = peripheral.find("speaker")
 
 local main = basalt.createFrame()
 
-main:addLabel():setText("Ширина:"):setPosition(2, 2)
+main:addLabel():setText("Width:"):setPosition(2, 2)
 local widthInput = main:addTextfield():setPosition(12, 2):setSize(5, 1):setText("5")
 
-main:addLabel():setText("Длина:"):setPosition(2, 4)
+main:addLabel():setText("Length:"):setPosition(2, 4)
 local lengthInput = main:addTextfield():setPosition(12, 4):setSize(5, 1):setText("5")
 
-main:addLabel():setText("Высота:"):setPosition(2, 6)
+main:addLabel():setText("Height:"):setPosition(2, 6)
 local heightInput = main:addTextfield():setPosition(12, 6):setSize(5, 1):setText("5")
 
-local stateLabel = main:addLabel():setPosition(2, 8):setText("Состояние: Ожидание")
+local statusLabel = main:addLabel():setPosition(2, 8):setText("Status: Idle")
 
-local startButton = main:addButton():setPosition(2, 10):setSize(15, 1):setText("Начать копать")
+local startButton = main:addButton():setPosition(2, 10):setSize(18, 1):setText("Start mining")
 
 local trashItems = {
     ["minecraft:cobblestone"] = true,
@@ -24,7 +24,7 @@ local trashItems = {
 }
 
 local function setStatus(text)
-    stateLabel:setText("Состояние: " .. text)
+    statusLabel:setText("Status: " .. text)
     if speaker then speaker.speak(text) end
 end
 
@@ -39,7 +39,7 @@ local function dropTrash()
 end
 
 local function returnToStart(x, y, z, dir)
-    setStatus("Возвращаюсь")
+    setStatus("Returning")
 
     for i = 1, y do turtle.up() end
 
@@ -59,11 +59,11 @@ local function returnToStart(x, y, z, dir)
 
     for i = 1, math.abs(z) do turtle.forward() end
 
-    setStatus("Готово")
+    setStatus("Done")
 end
 
 local function digArea(width, length, height)
-    setStatus("Начинаю работу")
+    setStatus("Mining started")
     local x, z, y = 0, 0, 0
     local direction = "right"
 
@@ -97,7 +97,7 @@ local function digArea(width, length, height)
         if h < height then
             if turtle.detectDown() then turtle.digDown() end
             if not turtle.down() then
-                setStatus("Бедрок! Возврат")
+                setStatus("Bedrock! Returning")
                 returnToStart(x, y, z, direction)
                 return
             end
@@ -114,7 +114,7 @@ startButton:onClick(function()
     local l = tonumber(lengthInput:getValue())
     local h = tonumber(heightInput:getValue())
     if not w or not l or not h then
-        setStatus("Ошибка: введите числа")
+        setStatus("Error: invalid input")
         return
     end
     digArea(w, l, h)

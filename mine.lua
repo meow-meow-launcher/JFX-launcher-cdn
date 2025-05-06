@@ -4,21 +4,24 @@ local speaker = peripheral.find("speaker")
 -- Создаём основной фрейм
 local main = basalt.createFrame()
 
--- Добавляем элементы интерфейса
+-- Добавляем элементы интерфейса с начальными значениями
 main:addLabel():setText("Width:"):setPosition(2, 2)
 local widthInput = main:addTextfield()
 widthInput:setPosition(12, 2)
 widthInput:setSize(5, 1)
+widthInput:setDefaultText("3")
 
 main:addLabel():setText("Length:"):setPosition(2, 4)
 local lengthInput = main:addTextfield()
 lengthInput:setPosition(12, 4)
 lengthInput:setSize(5, 1)
+lengthInput:setDefaultText("1")
 
 main:addLabel():setText("Height:"):setPosition(2, 6)
 local heightInput = main:addTextfield()
 heightInput:setPosition(12, 6)
 heightInput:setSize(5, 1)
+heightInput:setDefaultText("1")
 
 local statusLabel = main:addLabel()
 statusLabel:setPosition(2, 8)
@@ -107,7 +110,7 @@ local function returnToStart(x, y, z, dir)
     setStatus("Returned to start")
 end
 
--- Функция копания
+-- Функция копания (без установки факелов)
 local function digArea(width, length, height)
     setStatus("Mining started")
     local x, z, y = 0, 0, 0
@@ -138,19 +141,6 @@ local function digArea(width, length, height)
                     turtle.turnLeft()
                     direction = "right"
                     z = z + 1
-                end
-            end
-
-            -- Проверяем инвентарь и ставим факел каждые 5 блоков
-            if l % 5 == 0 then
-                for i = 1, 16 do
-                    turtle.select(i)
-                    local item = turtle.getItemDetail()
-                    if item and item.name == "minecraft:torch" then
-                        turtle.placeDown()
-                        setStatus("Placed torch at " .. x .. "," .. z)
-                        break
-                    end
                 end
             end
         end

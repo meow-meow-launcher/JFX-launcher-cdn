@@ -1,7 +1,6 @@
 local basalt = require("basalt")
-local speaker = peripheral.find("speaker") -- найдёт speaker, если подключён
+local speaker = peripheral.find("speaker")
 
--- UI setup
 local main = basalt.createFrame()
 
 main:addLabel():setText("Ширина:"):setPosition(2, 2)
@@ -17,7 +16,6 @@ local stateLabel = main:addLabel():setPosition(2, 8):setText("Состояние
 
 local startButton = main:addButton():setPosition(2, 10):setSize(15, 1):setText("Начать копать")
 
--- Настройки фильтрации
 local trashItems = {
     ["minecraft:cobblestone"] = true,
     ["minecraft:dirt"] = true,
@@ -27,9 +25,7 @@ local trashItems = {
 
 local function setStatus(text)
     stateLabel:setText("Состояние: " .. text)
-    if speaker then
-        speaker.speak(text)
-    end
+    if speaker then speaker.speak(text) end
 end
 
 local function dropTrash()
@@ -42,47 +38,30 @@ local function dropTrash()
     end
 end
 
--- Поворот
-local function turnAround()
-    turtle.turnLeft()
-    turtle.turnLeft()
-end
-
--- Возврат к старту
 local function returnToStart(x, y, z, dir)
     setStatus("Возвращаюсь")
 
-    -- Вверх
-    for i = 1, y do
-        turtle.up()
-    end
+    for i = 1, y do turtle.up() end
 
-    -- Повернуться к оси X
     if dir == "right" then
         turtle.turnLeft()
     else
         turtle.turnRight()
     end
 
-    for i = 1, math.abs(x) do
-        turtle.forward()
-    end
+    for i = 1, math.abs(x) do turtle.forward() end
 
-    -- Повернуться к оси Z
     if dir == "right" then
         turtle.turnLeft()
     else
         turtle.turnRight()
     end
 
-    for i = 1, math.abs(z) do
-        turtle.forward()
-    end
+    for i = 1, math.abs(z) do turtle.forward() end
 
     setStatus("Готово")
 end
 
--- Основное копание
 local function digArea(width, length, height)
     setStatus("Начинаю работу")
     local x, z, y = 0, 0, 0
@@ -130,17 +109,14 @@ local function digArea(width, length, height)
     returnToStart(x, y, z, direction)
 end
 
--- Нажатие кнопки
 startButton:onClick(function()
     local w = tonumber(widthInput:getValue())
     local l = tonumber(lengthInput:getValue())
     local h = tonumber(heightInput:getValue())
-
     if not w or not l or not h then
         setStatus("Ошибка: введите числа")
         return
     end
-
     digArea(w, l, h)
 end)
 

@@ -1,9 +1,16 @@
+-- Требуем Basalt
+local basalt = require("basalt")
+
 -- Инициализация периферий
 local monitor = peripheral.find("monitor")
-local term = term -- Терминал компьютера
-if monitor then
-    monitor.setTextScale(0.5)
+local speaker = peripheral.find("speaker")
+if not speaker then
+    error("Динамик не найден")
 end
+
+-- Модуль для DFPM
+local dfpwm = require("cc.audio.dfpwm")
+local decoder = dfpwm.make_decoder()
 
 -- Состояния плеера
 local isPlaying = false
@@ -16,88 +23,117 @@ if #args > 0 then
     url = args[1]
 end
 
--- Цвета
-local colors = {
-    green = colors.green,
-    yellow = colors.yellow,
-    red = colors.red,
-    gray = colors.gray,
-    white = colors.white,
-    black = colors.black
-}
-
--- Отрисовка интерфейса на указанном устройстве
-local function drawInterface(device)
-    device.clear()
-    device.setCursorPos(1, 1)
-    
-    -- Поле URL
-    device.setTextColor(colors.white)
-    device.write("URL: " .. url)
-    
-    -- Кнопки
-    local buttonY = 3
-    device.setCursorPos(2, buttonY)
-    
-    -- Кнопка Play
-    if isPlaying then
-        device.setBackgroundColor(colors.green)
-    else
-        device.setBackgroundColor(colors.gray)
-    end
-    device.write(" Play ")
-    
-    -- Кнопка Stop
-    device.setCursorPos(10, buttonY)
-    if not isPlaying then
-        device.setBackgroundColor(colors.red)
-    else
-        device.setBackgroundColor(colors.gray)
-    end
-    device.write(" Stop ")
-    
-    -- Кнопка Loop
-    device.setCursorPos(18, buttonY)
-    if isLooping and isPlaying then
-        device.setBackgroundColor(colors.yellow)
-    else
-        device.setBackgroundColor(colors.gray)
-    end
-    device.write(" Loop ")
-    
-    device.setBackgroundColor(colors.black)
+-- Создание главного фрейма Basalt
+local mainFrame
+if monitor then
+    monitor.setTextScale(0.5)
+    mainFrame = basalt.createFrame("mainFrame", monitor)
+else
+    mainFrame = basalt.createFrame("mainFrame")
 end
 
--- Обновление интерфейса на всех устройствах
+-- Создание элементов интерфейса
+local urlField = mainFrame:addLabel()
+    :setText("URL: " .. url)
+    :setPosition(2, 2)
+    :setForeground(colors.white)
+
+local playButton = mainFrame:addButton()
+    :setText("Play")
+    :setPosition(2, 4)
+    :setSize(6, 1)
+    :setBackground(isPlaying and colors.green or colors.gray)
+
+local stopButton = mainFrame:addButton()
+    :setText("Stop")
+    :setPosition(10, 4)
+    :setSize(6, 1)
+    :setBackground(not isPlaying and colors.red or colors.gray)
+
+local loopButton = mainFrame:addButton()
+    :setText("Loop")
+    :setPosition(18, 4)
+    :setSize(6, 1)
+    :setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
+
+-- Обновление интерфейса
 local function updateInterface()
-    drawInterface(term)
-    if monitor then
-        drawInterface(monitor)
-    end
+    urlField:setText("URL: " .. url)
+    playButton:setBackground(isPlaying and colors.green or colors.gray)
+    stopButton:setBackground(not isPlaying and colors.red or colors.gray)
+    loopButton:setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
 end
 
 -- Обработка ввода URL
-local function inputURL(device)
-    device.setCursorPos(6, 1)
-    device.setTextColor(colors.white)
-    device.setBackgroundColor(colors.black)
+local function inputURL()
+    basalt.stopUpdate()
+    term.setCursorPos(6, 2)
+    term.setTextColor(colors.white)
+    term.setBackgroundColor(colors.black)
     url = read()
     updateInterface()
+    basalt.startUpdate()
 end
 
 -- Воспроизведение DFPM
 local function playDFPM()
-    if url ~= "" then
-        isPlaying = true
-        -- Здесь должен быть код для воспроизведения DFPM
-        updateInterface()
-    end
+    if url == "" or isPlaying then return end
+    isPlaying = true
+    updateInterface()
+
+    -- Загрузка и воспроизведение в отдельном потоке
+    parallel.waitForAny(
+        function()
+            local handle = http.get(url, nil, true) -- Бинарный режим
+            if not handle then
+                isPlaying = false
+                updateInterface()
+                return
+            end
+
+            while isPlaying do
+                local chunk = handle.read(16 * 1024)
+                if not chunk then
+                    if isLooping then
+                        handle.close()
+                        handle = http.get(url, nil, true)
+                        if not handle then
+                            isPlaying = false
+                            updateInterface()
+                            return
+                        end
+                        chunk = handle.read(16 * 1024)
+                        if not chunk then
+                            isPlaying = false
+                            updateInterface()
+                            return
+                        end
+                    else
+                        isPlaying = false
+                        updateInterface()
+                        handle.close()
+                        return
+                    end
+                end
+
+                local buffer = decoder(chunk)
+                while not speaker.playAudio(buffer) do
+                    os.pullEvent("speaker_audio_empty")
+                end
+            end
+            handle.close()
+        end,
+        function()
+            while isPlaying do
+                os.pullEvent("speaker_audio_empty")
+            end
+        end
+    )
 end
 
 -- Остановка воспроизведения
 local function stopDFPM()
     isPlaying = false
-    -- Здесь должен быть код для остановки воспроизведения
     updateInterface()
 end
 
@@ -109,43 +145,27 @@ local function toggleLoop()
     end
 end
 
--- Обработка событий кликов
-local function handleInput()
-    while true do
-        local event, param1, x, y = os.pullEvent()
-        
-        if event == "monitor_touch" and monitor then
-            if y == 3 then
-                if x >= 2 and x <= 7 then -- Play
-                    playDFPM()
-                elseif x >= 10 and x <= 15 then -- Stop
-                    stopDFPM()
-                elseif x >= 18 and x <= 23 then -- Loop
-                    toggleLoop()
-                end
-            elseif y == 1 then -- URL input
-                inputURL(monitor)
-            end
-        elseif event == "mouse_click" then
-            if y == 3 then
-                if x >= 2 and x <= 7 then -- Play
-                    playDFPM()
-                elseif x >= 10 and x <= 15 then -- Stop
-                    stopDFPM()
-                elseif x >= 18 and x <= 23 then -- Loop
-                    toggleLoop()
-                end
-            elseif y == 1 then -- URL input
-                inputURL(term)
-            end
-        end
-    end
-end
+-- Обработка событий
+urlField:onClick(function()
+    inputURL()
+end)
+
+playButton:onClick(function()
+    playDFPM()
+end)
+
+stopButton:onClick(function()
+    stopDFPM()
+end)
+
+loopButton:onClick(function()
+    toggleLoop()
+end)
 
 -- Основной цикл
 local function main()
     updateInterface()
-    handleInput()
+    basalt.run()
 end
 
 main()

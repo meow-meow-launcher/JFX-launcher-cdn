@@ -9,19 +9,16 @@ main:addLabel():setText("Width:"):setPosition(2, 2)
 local widthInput = main:addTextfield()
 widthInput:setPosition(12, 2)
 widthInput:setSize(5, 1)
-widthInput:setText("5")
 
 main:addLabel():setText("Length:"):setPosition(2, 4)
 local lengthInput = main:addTextfield()
 lengthInput:setPosition(12, 4)
 lengthInput:setSize(5, 1)
-lengthInput:setText("5")
 
 main:addLabel():setText("Height:"):setPosition(2, 6)
 local heightInput = main:addTextfield()
 heightInput:setPosition(12, 6)
 heightInput:setSize(5, 1)
-heightInput:setText("5")
 
 local statusLabel = main:addLabel()
 statusLabel:setPosition(2, 8)
@@ -49,17 +46,17 @@ local function setStatus(text)
     end
     if speaker then
         if text:find("Mining started") then
-            speaker.playSound("pling", 1.0, 0.5) -- Начало копания: низкий писк
+            speaker.playSound("pling", 1.0, 0.5) -- Начало копания
         elseif text:find("Bedrock") then
-            speaker.playSound("note.bass", 0.8, 0.3) -- Обнаружена bedrock: низкий бас
+            speaker.playSound("note.bass", 0.8, 0.3) -- Обнаружена bedrock
         elseif text:find("Returning") then
-            speaker.playSound("note.harp", 1.2, 0.4) -- Возвращение: арфа
+            speaker.playSound("note.harp", 1.2, 0.4) -- Возвращение
         elseif text:find("Returned to start") then
-            speaker.playSound("note.pling", 1.5, 0.5) -- Вернулась: высокий писк
-        elseif text:find("Started mining") then
-            speaker.playSound("note.bell", 1.0, 0.6) -- Код выполнен: звон
+            speaker.playSound("note.pling", 1.5, 0.5) -- Вернулась
+        elseif text:find("Code executed") then
+            speaker.playSound("note.bell", 1.0, 0.6) -- Код выполнен
         end
-        speaker.speak(text)
+        -- Убрал speaker.speak из-за ошибки, оставил только playSound
     end
 end
 

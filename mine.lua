@@ -4,24 +4,21 @@ local speaker = peripheral.find("speaker")
 -- Создаём основной фрейм
 local main = basalt.createFrame()
 
--- Добавляем элементы интерфейса с начальными значениями
+-- Добавляем элементы интерфейса без начальных значений
 main:addLabel():setText("Width:"):setPosition(2, 2)
 local widthInput = main:addTextfield()
 widthInput:setPosition(12, 2)
 widthInput:setSize(5, 1)
-widthInput:setDefaultText("3")
 
 main:addLabel():setText("Length:"):setPosition(2, 4)
 local lengthInput = main:addTextfield()
 lengthInput:setPosition(12, 4)
 lengthInput:setSize(5, 1)
-lengthInput:setDefaultText("1")
 
 main:addLabel():setText("Height:"):setPosition(2, 6)
 local heightInput = main:addTextfield()
 heightInput:setPosition(12, 6)
 heightInput:setSize(5, 1)
-heightInput:setDefaultText("1")
 
 local statusLabel = main:addLabel()
 statusLabel:setPosition(2, 8)
@@ -110,7 +107,7 @@ local function returnToStart(x, y, z, dir)
     setStatus("Returned to start")
 end
 
--- Функция копания (без установки факелов)
+-- Функция копания
 local function digArea(width, length, height)
     setStatus("Mining started")
     local x, z, y = 0, 0, 0
@@ -169,20 +166,30 @@ startButton:onClick(function()
     local hRaw = heightInput:getValue() or ""
     
     -- Извлекаем только цифры
-    local wStr = wRaw:match("^%d+$") or "1"
-    local lStr = lRaw:match("^%d+$") or "1"
-    local hStr = hRaw:match("^%d+$") or "1"
-    
-    -- Преобразуем в числа
-    local w = tonumber(wStr)
-    local l = tonumber(lStr)
-    local h = tonumber(hStr)
+    local wStr = wRaw:match("^%d+$")
+    local lStr = lRaw:match("^%d+$")
+    local hStr = hRaw:match("^%d+$")
     
     -- Отладочный вывод
     print("Raw values - Width: '" .. tostring(wRaw) .. "' (" .. type(wRaw) .. "), Length: '" .. tostring(lRaw) .. "' (" .. type(lRaw) .. "), Height: '" .. tostring(hRaw) .. "' (" .. type(hRaw) .. ")")
-    print("Matched - Width: '" .. wStr .. "', Length: '" .. lStr .. "', Height: '" .. hStr .. "'")
-    print("Processed - Width: " .. tostring(w) .. " (" .. type(w) .. "), Length: " .. tostring(l) .. " (" .. type(l) .. "), Height: " .. tostring(h) .. " (" .. type(h) .. ")")
+    print("Matched - Width: '" .. tostring(wStr) .. "', Length: '" .. tostring(lStr) .. "', Height: '" .. tostring(hStr) .. "'")
 
+    -- Если значения не получены, запрашиваем через консоль
+    local w, l, h
+    if not wStr or not lStr or not hStr then
+        setStatus("GUI input failed, switching to console input")
+        print("Enter Width:")
+        w = tonumber(io.read()) or 0
+        print("Enter Length:")
+        l = tonumber(io.read()) or 0
+        print("Enter Height:")
+        h = tonumber(io.read()) or 0
+    else
+        w = tonumber(wStr)
+        l = tonumber(lStr)
+        h = tonumber(hStr)
+    end
+    
     -- Проверяем, что значения корректны
     if not w or not l or not h or w <= 0 or l <= 0 or h <= 0 then
         setStatus("Invalid input: values must be greater than 0, got w=" .. tostring(w) .. ", l=" .. tostring(l) .. ", h=" .. tostring(h))

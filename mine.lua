@@ -82,7 +82,11 @@ local function tryDown()
             manageInventory()
         end
     end
-    return turtle.down()
+    if turtle.down() then
+        currentY = currentY - 1
+        return true
+    end
+    return false
 end
 
 -- Move up
@@ -93,7 +97,11 @@ local function tryUp()
             manageInventory()
         end
     end
-    return turtle.up()
+    if turtle.up() then
+        currentY = currentY + 1
+        return true
+    end
+    return false
 end
 
 -- Return to starting position
@@ -107,7 +115,7 @@ local function returnToStart()
         currentY = currentY + 1
     end
     while currentY > startY do
-        turtle.down()
+        if not turtle.down() then break end
         currentY = currentY - 1
     end
     
@@ -124,26 +132,51 @@ local function returnToStart()
     end
 end
 
+-- Check and refuel if needed
+local function checkFuel()
+    if turtle.getFuelLevel() < (length * width * depth) + 50 then
+        print("Low fuel! Refuel with at least "..((length * width * depth) + 50).." units.")
+        for slot = 1, 16 do
+            if turtle.getItemCount(slot) > 0 then
+                turtle.select(slot)
+                turtle.refuel(1)
+                if turtle.getFuelLevel() >= (length * width * depth) + 50 then
+                    print("Refueled successfully.")
+                    return true
+                end
+            end
+        end
+        print("Not enough fuel to proceed. Add fuel and try again.")
+        return false
+    end
+    return true
+end
+
 -- Main mining function
 local function mine()
     playSound("minecraft:block.note_block.bell") -- Signal start
     print("Starting mining operation: "..length.."x"..depth.."x"..width)
+    
+    -- Initialize starting position
+    startY = 0
+    currentY = 0
+    if not checkFuel() then return end
     
     for z = 1, width do
         for x = 1, length do
             -- Dig down to depth or bedrock
             for y = 1, depth do
                 if not tryDown() then
-                    returnToStart()
-                    return
+                    while currentY < startY do
+                        tryUp()
+                    end
+                    break
                 end
-                currentY = currentY - 1
             end
             
             -- Move back up to start Y
             while currentY < startY do
                 tryUp()
-                currentY = currentY + 1
             end
             
             -- Move to next X position
@@ -191,10 +224,6 @@ if not length or not depth or not width or length < 1 or depth < 1 or width < 1 
     print("Invalid dimensions. Use positive integers.")
     return
 end
-
--- Get starting Y level (relative tracking)
-startY = 0
-currentY = 0
 
 -- Start mining
 mine()

@@ -1,35 +1,46 @@
--- Подключение библиотеки CCSimpleGUI
-local gui = require("ccsg.gui")
-local text = require("ccsg.text")
-local button = require("ccsg.button")
-local entry = require("ccsg.entry")
+-- Подключение библиотеки Basalt
+local basalt = require("basalt")
 
 -- Поиск принтера
 local printer = peripheral.find("printer")
 local printerInitialized = false
 
--- Создание GUI окна
-local win = gui.new({
-    -- Поле ввода текста
-    input = entry.new{pos={2,2}, size={30,1}, label="Введите текст:"},
-    -- Кнопка инициализации принтера
-    initButton = button.new{pos={2,4}, size={14,1}, label="Инициализировать"},
-    -- Кнопка печати
-    printButton = button.new{pos={18,4}, size={14,1}, label="Печатать"},
-}, {autofit=true})
+-- Создание основного фрейма
+local mainFrame = basalt.createFrame()
+
+-- Создание элементов GUI
+local inputField = mainFrame:addInput()
+    :setPosition(2, 2)
+    :setSize(30, 1)
+    :setDefaultText("Введите текст")
+
+local initButton = mainFrame:addButton()
+    :setPosition(2, 4)
+    :setSize(14, 1)
+    :setText("Инициализировать")
+
+local printButton = mainFrame:addButton()
+    :setPosition(18, 4)
+    :setSize(14, 1)
+    :setText("Печатать")
+
+local statusLabel = mainFrame:addLabel()
+    :setPosition(2, 6)
+    :setSize(30, 1)
+    :setText("Статус: Ожидание")
 
 -- Функция инициализации принтера
 local function initializePrinter()
     if printer then
         printerInitialized = true
-        win.widgets.initButton.label = "Принтер готов"
-        win.widgets.printButton.active = true
-        win:draw()
+        initButton:setText("Принтер готов")
+        printButton:setEnabled(true)
+        statusLabel:setText("Статус: Принтер готов")
     else
         printer = peripheral.find("printer")
         if not printer then
-            win.widgets.initButton.label = "Принтер не найден"
-            win:draw()
+            initButton:setText("Принтер не найден")
+            statusLabel:setText("Статус: Принтер не найден")
         end
     end
 end
@@ -37,43 +48,36 @@ end
 -- Функция печати
 local function printText()
     if not printerInitialized then
-        win.widgets.initButton.label = "Инициализируйте принтер"
-        win:draw()
+        statusLabel:setText("Статус: Инициализируйте принтер")
         return
     end
 
-    local textToPrint = win.widgets.input.value or "Пустой текст"
-    
+    local textToPrint = inputField:getValue() or "Пустой текст"
+
     if not printer.newPage() then
-        win.widgets.initButton.label = "Нет бумаги/чернил"
-        win:draw()
+        statusLabel:setText("Статус: Нет бумаги/чернил")
         return
     end
 
-    printer.setPageTitle("CC Print")
+    printer.setPageTitle("Basalt Print")
     printer.write(textToPrint)
-    
+
     if not printer.endPage() then
-        win.widgets.initButton.label = "Ошибка печати"
-        win:draw()
+        statusLabel:setText("Статус: Ошибка печати")
         return
     end
 
-    win.widgets.initButton.label = "Печать завершена"
-    win:draw()
+    statusLabel:setText("Статус: Печать завершена")
 end
 
--- Основной цикл обработки событий
-while true do
-    local events, values = win:read()
-    
-    if events == "initButton" then
-        initializePrinter()
-    elseif events == "printButton" then
-        printText()
-    elseif events == "quit" then
-        term.clear()
-        term.setCursorPos(1,1)
-        break
-    end
-end
+-- Обработка событий кнопок
+initButton:onClick(function()
+    initializePrinter()
+end)
+
+printButton:onClick(function()
+    printText()
+end)
+
+-- Запуск Basalt
+basalt.autoUpdate()

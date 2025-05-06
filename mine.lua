@@ -173,15 +173,15 @@ end
 
 -- Обработчик клика по кнопке
 startButton:onClick(function()
-    -- Получаем значения и очищаем их
+    -- Получаем значения
     local wRaw = widthInput:getValue() or ""
     local lRaw = lengthInput:getValue() or ""
     local hRaw = heightInput:getValue() or ""
     
-    -- Очищаем строки и преобразуем в числа
-    local w = tonumber((wRaw or ""):gsub("%s+", ""))
-    local l = tonumber((lRaw or ""):gsub("%s+", ""))
-    local h = tonumber((hRaw or ""):gsub("%s+", ""))
+    -- Преобразуем в числа с очисткой
+    local w = tonumber(wRaw:match("^%d+$") or "1")
+    local l = tonumber(lRaw:match("^%d+$") or "1")
+    local h = tonumber(hRaw:match("^%d+$") or "1")
     
     -- Отладочный вывод
     print("Raw values - Width: '" .. tostring(wRaw) .. "' (" .. type(wRaw) .. "), Length: '" .. tostring(lRaw) .. "' (" .. type(lRaw) .. "), Height: '" .. tostring(hRaw) .. "' (" .. type(hRaw) .. ")")

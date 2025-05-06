@@ -1,35 +1,45 @@
--- Include CCSimpleGUI library
-local gui = require("ccsg.gui")
-local text = require("ccsg.text")
-local button = require("ccsg.button")
-local entry = require("ccsg.entry")
+-- Include Basalt library
+local basalt = require("basalt")
 
 -- Find printer
 local printer = peripheral.find("printer")
 local printerInitialized = false
 
--- Create GUI window
-local win = gui.new({
-    -- Text input field
-    input = entry.new{pos={2,2}, size={30,1}, label="Enter text:"},
-    -- Initialize button
-    initButton = button.new{pos={2,4}, size={14,1}, label="Initialize"},
-    -- Print button
-    printButton = button.new{pos={18,4}, size={14,1}, label="Print", active=false},
-}, {autofit=true})
+-- Create main frame
+local mainFrame = basalt.createFrame()
+
+-- Create GUI elements
+local inputField = mainFrame:addInput()
+    :setPosition(2, 2)
+    :setSize(40, 3) -- Larger input field (width: 40, height: 3)
+    :setDefaultText("Enter text")
+
+local initButton = mainFrame:addButton()
+    :setPosition(2, 6)
+    :setSize(14, 1)
+    :setText("Initialize")
+
+local printButton = mainFrame:addButton()
+    :setPosition(18, 6)
+    :setSize(14, 1)
+    :setText("Print")
+
+local statusLabel = mainFrame:addLabel()
+    :setPosition(2, 8)
+    :setSize(40, 1)
+    :setText("Status: Waiting")
 
 -- Function to initialize printer
 local function initializePrinter()
     if printer then
         printerInitialized = true
-        win.widgets.initButton.label = "Printer Ready"
-        win.widgets.printButton.active = true
-        win:draw()
+        initButton:setText("Printer Ready")
+        statusLabel:setText("Status: Printer Ready")
     else
         printer = peripheral.find("printer")
         if not printer then
-            win.widgets.initButton.label = "Printer Not Found"
-            win:draw()
+            initButton:setText("Printer Not Found")
+            statusLabel:setText("Status: Printer Not Found")
         end
     end
 end
@@ -37,43 +47,36 @@ end
 -- Function to print text
 local function printText()
     if not printerInitialized then
-        win.widgets.initButton.label = "Initialize Printer"
-        win:draw()
+        statusLabel:setText("Status: Initialize Printer")
         return
     end
 
-    local textToPrint = win.widgets.input.value or "Empty text"
-    
+    local textToPrint = inputField:getValue() or "Empty text"
+
     if not printer.newPage() then
-        win.widgets.initButton.label = "No Paper/Ink"
-        win:draw()
+        statusLabel:setText("Status: No Paper/Ink")
         return
     end
 
-    printer.setPageTitle("CCSimpleGUI Print")
+    printer.setPageTitle("Basalt Print")
     printer.write(textToPrint)
-    
+
     if not printer.endPage() then
-        win.widgets.initButton.label = "Print Error"
-        win:draw()
+        statusLabel:setText("Status: Print Error")
         return
     end
 
-    win.widgets.initButton.label = "Print Complete"
-    win:draw()
+    statusLabel:setText("Status: Print Complete")
 end
 
--- Main event loop
-while true do
-    local events, values = win:read()
-    
-    if events == "initButton" then
-        initializePrinter()
-    elseif events == "printButton" then
-        printText()
-    elseif events == "quit" then
-        term.clear()
-        term.setCursorPos(1,1)
-        break
-    end
-end
+-- Handle button events
+initButton:onClick(function()
+    initializePrinter()
+end)
+
+printButton:onClick(function()
+    printText()
+end)
+
+-- Run Basalt
+basalt.autoUpdate()

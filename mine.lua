@@ -178,13 +178,19 @@ startButton:onClick(function()
     local lRaw = lengthInput:getValue() or ""
     local hRaw = heightInput:getValue() or ""
     
-    -- Преобразуем в числа с очисткой
-    local w = tonumber(wRaw:match("^%d+$") or "1")
-    local l = tonumber(lRaw:match("^%d+$") or "1")
-    local h = tonumber(hRaw:match("^%d+$") or "1")
+    -- Извлекаем только цифры
+    local wStr = wRaw:match("^%d+$") or "1"
+    local lStr = lRaw:match("^%d+$") or "1"
+    local hStr = hRaw:match("^%d+$") or "1"
+    
+    -- Преобразуем в числа
+    local w = tonumber(wStr)
+    local l = tonumber(lStr)
+    local h = tonumber(hStr)
     
     -- Отладочный вывод
     print("Raw values - Width: '" .. tostring(wRaw) .. "' (" .. type(wRaw) .. "), Length: '" .. tostring(lRaw) .. "' (" .. type(lRaw) .. "), Height: '" .. tostring(hRaw) .. "' (" .. type(hRaw) .. ")")
+    print("Matched - Width: '" .. wStr .. "', Length: '" .. lStr .. "', Height: '" .. hStr .. "'")
     print("Processed - Width: " .. tostring(w) .. " (" .. type(w) .. "), Length: " .. tostring(l) .. " (" .. type(l) .. "), Height: " .. tostring(h) .. " (" .. type(h) .. ")")
 
     -- Проверяем, что значения корректны

@@ -4,17 +4,31 @@ local speaker = peripheral.find("speaker")
 local main = basalt.createFrame()
 
 main:addLabel():setText("Width:"):setPosition(2, 2)
-local widthInput = main:addTextfield():setPosition(12, 2):setSize(5, 1):setText("5")
+local widthInput = main:addTextfield()
+widthInput:setPosition(12, 2)
+widthInput:setSize(5, 1)
+widthInput:setText("5")
 
 main:addLabel():setText("Length:"):setPosition(2, 4)
-local lengthInput = main:addTextfield():setPosition(12, 4):setSize(5, 1):setText("5")
+local lengthInput = main:addTextfield()
+lengthInput:setPosition(12, 4)
+lengthInput:setSize(5, 1)
+lengthInput:setText("5")
 
 main:addLabel():setText("Height:"):setPosition(2, 6)
-local heightInput = main:addTextfield():setPosition(12, 6):setSize(5, 1):setText("5")
+local heightInput = main:addTextfield()
+heightInput:setPosition(12, 6)
+heightInput:setSize(5, 1)
+heightInput:setText("5")
 
-local statusLabel = main:addLabel():setPosition(2, 8):setText("Status: Idle")
+local statusLabel = main:addLabel()
+statusLabel:setPosition(2, 8)
+statusLabel:setText("Status: Idle")
 
-local startButton = main:addButton():setPosition(2, 10):setSize(18, 1):setText("Start mining")
+local startButton = main:addButton()
+startButton:setPosition(2, 10)
+startButton:setSize(18, 1)
+startButton:setText("Start mining")
 
 local trashItems = {
     ["minecraft:cobblestone"] = true,
@@ -114,10 +128,11 @@ startButton:onClick(function()
     local l = tonumber(lengthInput:getValue())
     local h = tonumber(heightInput:getValue())
     if not w or not l or not h then
-        setStatus("Error: invalid input")
+        setStatus("Invalid input")
         return
     end
-    digArea(w, l, h)
+    setStatus("Started mining " .. w .. "x" .. l .. "x" .. h)
+    -- Тут можешь вставить свою функцию копания
 end)
 
 basalt.autoUpdate()

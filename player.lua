@@ -1,29 +1,29 @@
--- Требуем Basalt
+-- Require Basalt
 local basalt = require("basalt")
 
--- Инициализация периферий
+-- Initialize peripherals
 local monitor = peripheral.find("monitor")
 local speaker = peripheral.find("speaker")
 if not speaker then
-    error("Динамик не найден")
+    error("Speaker not found")
 end
 
--- Модуль для DFPM
+-- DFPM module
 local dfpwm = require("cc.audio.dfpwm")
 local decoder = dfpwm.make_decoder()
 
--- Состояния плеера
+-- Player states
 local isPlaying = false
 local isLooping = false
 local url = ""
 
--- Получение URL из аргументов командной строки
+-- Get URL from command-line arguments
 local args = {...}
 if #args > 0 then
     url = args[1]
 end
 
--- Создание главного фрейма Basalt
+-- Create main Basalt frame
 local mainFrame
 if monitor then
     monitor.setTextScale(0.5)
@@ -32,10 +32,16 @@ else
     mainFrame = basalt.createFrame("mainFrame")
 end
 
--- Создание элементов интерфейса
-local urlField = mainFrame:addLabel()
-    :setText("URL: " .. url)
+-- Create interface elements
+local urlLabel = mainFrame:addLabel()
+    :setText("URL: ")
     :setPosition(2, 2)
+    :setForeground(colors.white)
+
+local urlInput = mainFrame:addInput()
+    :setPosition(7, 2)
+    :setSize(20, 1)
+    :setDefaultText(url)
     :setForeground(colors.white)
 
 local playButton = mainFrame:addButton()
@@ -56,35 +62,28 @@ local loopButton = mainFrame:addButton()
     :setSize(6, 1)
     :setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
 
--- Обновление интерфейса
+-- Update interface
 local function updateInterface()
-    urlField:setText("URL: " .. url)
     playButton:setBackground(isPlaying and colors.green or colors.gray)
     stopButton:setBackground(not isPlaying and colors.red or colors.gray)
     loopButton:setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
 end
 
--- Обработка ввода URL
-local function inputURL()
-    basalt.stopUpdate()
-    term.setCursorPos(6, 2)
-    term.setTextColor(colors.white)
-    term.setBackgroundColor(colors.black)
-    url = read()
-    updateInterface()
-    basalt.startUpdate()
-end
+-- Update URL from input field
+urlInput:onChange(function(self)
+    url = self:getValue()
+end)
 
--- Воспроизведение DFPM
+-- Play DFPM
 local function playDFPM()
     if url == "" or isPlaying then return end
     isPlaying = true
     updateInterface()
 
-    -- Загрузка и воспроизведение в отдельном потоке
+    -- Load and play in a separate thread
     parallel.waitForAny(
         function()
-            local handle = http.get(url, nil, true) -- Бинарный режим
+            local handle = http.get(url, nil, true) -- Binary mode
             if not handle then
                 isPlaying = false
                 updateInterface()
@@ -131,13 +130,13 @@ local function playDFPM()
     )
 end
 
--- Остановка воспроизведения
+-- Stop playback
 local function stopDFPM()
     isPlaying = false
     updateInterface()
 end
 
--- Переключение режима повтора
+-- Toggle loop mode
 local function toggleLoop()
     if isPlaying then
         isLooping = not isLooping
@@ -145,11 +144,7 @@ local function toggleLoop()
     end
 end
 
--- Обработка событий
-urlField:onClick(function()
-    inputURL()
-end)
-
+-- Handle events
 playButton:onClick(function()
     playDFPM()
 end)
@@ -162,10 +157,10 @@ loopButton:onClick(function()
     toggleLoop()
 end)
 
--- Основной цикл
+-- Main function
 local function main()
     updateInterface()
-    basalt.run()
+    basalt.autoUpdate()
 end
 
 main()

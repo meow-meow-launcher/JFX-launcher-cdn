@@ -1,169 +1,200 @@
-local basalt = require("basalt")
+-- Mining script for CC:Tweaked turtle with pickaxe and speaker
+-- Command: mine <length> <depth> <width>
+-- Digs a rectangular prism, signals via speaker, manages inventory, stops at bedrock
+
+local args = {...}
+local length, depth, width
 local speaker = peripheral.find("speaker")
-
--- Создаём основной фрейм
-local main = basalt.createFrame()
-
--- Добавляем элементы интерфейса
-local statusLabel = main:addLabel()
-statusLabel:setPosition(2, 2)
-statusLabel:setText("Status: Idle")
-
-local startButton = main:addButton()
-startButton:setPosition(2, 4)
-startButton:setSize(18, 1)
-startButton:setText("Start mining")
-
--- Список ненужных предметов
+local startY, currentY
+local startX, startZ = 0, 0
 local trashItems = {
-    ["minecraft:cobblestone"] = true,
-    ["minecraft:dirt"] = true,
-    ["minecraft:gravel"] = true,
-    ["minecraft:granite"] = true
+    "minecraft:stone", "minecraft:cobblestone", "minecraft:dirt", "minecraft:gravel",
+    "minecraft:andesite", "minecraft:diorite", "minecraft:granite", "minecraft:sand"
+}
+local valuableItems = {
+    "minecraft:iron_ore", "minecraft:coal_ore", "minecraft:gold_ore", "minecraft:redstone_ore",
+    "minecraft:diamond_ore", "minecraft:lapis_ore", "minecraft:emerald_ore", "minecraft:copper_ore",
+    "minecraft:deepslate_iron_ore", "minecraft:deepslate_coal_ore", "minecraft:deepslate_gold_ore",
+    "minecraft:deepslate_redstone_ore", "minecraft:deepslate_diamond_ore", "minecraft:deepslate_lapis_ore",
+    "minecraft:deepslate_emerald_ore", "minecraft:deepslate_copper_ore"
 }
 
--- Функция установки статуса с звуковой индикацией
-local function setStatus(text)
-    if statusLabel then
-        statusLabel:setText("Status: " .. text)
-    else
-        print("Status: " .. text)
-    end
+-- Play sound via speaker
+local function playSound(sound)
     if speaker then
-        if text:find("Mining started") then
-            speaker.playSound("pling", 1.0, 0.5) -- Начало копания
-        elseif text:find("Bedrock") then
-            speaker.playSound("note.bass", 0.8, 0.3) -- Обнаружена bedrock
-        elseif text:find("Returning") then
-            speaker.playSound("note.harp", 1.2, 0.4) -- Возвращение
-        elseif text:find("Returned to start") then
-            speaker.playSound("note.pling", 1.5, 0.5) -- Вернулась
-        elseif text:find("Code executed") then
-            speaker.playSound("note.bell", 1.0, 0.6) -- Код выполнен
-        end
+        speaker.playSound(sound, 1.0, 1.0)
     end
 end
 
--- Функция сброса мусора
-local function dropTrash()
-    for i = 1, 16 do
-        turtle.select(i)
-        local item = turtle.getItemDetail()
-        if item and trashItems[item.name] then
-            turtle.drop()
-        end
+-- Check if item is trash
+local function isTrash(item)
+    if not item then return false end
+    for _, trash in ipairs(trashItems) do
+        if item.name == trash then return true end
     end
+    return false
 end
 
--- Функция возвращения в стартовую позицию
-local function returnToStart(x, y, z, dir)
-    setStatus("Returning")
+-- Manage inventory: drop trash items if inventory is full
+local function manageInventory()
+    for slot = 1, 16 do
+        local item = turtle.getItemDetail(slot)
+        if item and isTrash(item) then
+            turtle.select(slot)
+            turtle.dropDown() -- Drop trash items downward
+        end
+    end
+    turtle.select(1) -- Return to slot 1
+end
+
+-- Check if inventory has space
+local function hasInventorySpace()
+    for slot = 1, 16 do
+        if turtle.getItemCount(slot) == 0 then
+            return true
+        end
+    end
+    return false
+end
+
+-- Move forward with digging
+local function tryForward()
+    while turtle.detect() do
+        if not turtle.dig() then
+            return false -- Likely hit bedrock
+        end
+        if not hasInventorySpace() then
+            manageInventory()
+        end
+    end
+    return turtle.forward()
+end
+
+-- Move down with digging
+local function tryDown()
+    while turtle.detectDown() do
+        if not turtle.digDown() then
+            playSound("minecraft:block.anvil.land") -- Signal bedrock hit
+            print("Hit bedrock, stopping descent.")
+            return false
+        end
+        if not hasInventorySpace() then
+            manageInventory()
+        end
+    end
+    return turtle.down()
+end
+
+-- Move up
+local function tryUp()
+    while turtle.detectUp() do
+        turtle.digUp()
+        if not hasInventorySpace() then
+            manageInventory()
+        end
+    end
+    return turtle.up()
+end
+
+-- Return to starting position
+local function returnToStart()
+    playSound("minecraft:entity.enderman.teleport") -- Signal return
+    print("Returning to starting position...")
     
-    -- Поднимаемся на нужную высоту
-    for i = 1, y do turtle.up() end
+    -- Return to starting Y level
+    while currentY < startY do
+        tryUp()
+        currentY = currentY + 1
+    end
+    while currentY > startY do
+        turtle.down()
+        currentY = currentY - 1
+    end
     
-    -- Корректируем направление
-    if dir == "right" then
-        turtle.turnLeft()
-    else
+    -- Return to starting X, Z (0, 0 relative)
+    while startX > 0 do
+        turtle.back()
+        startX = startX - 1
+    end
+    while startZ > 0 do
         turtle.turnRight()
-    end
-    
-    -- Двигаемся по X
-    for i = 1, math.abs(x) do
         turtle.forward()
-    end
-    
-    -- Корректируем направление обратно
-    if dir == "right" then
         turtle.turnLeft()
-    else
-        turtle.turnRight()
+        startZ = startZ - 1
     end
-    
-    -- Двигаемся по Z
-    for i = 1, math.abs(z) do
-        turtle.forward()
-    end
-    
-    -- Опускаемся вниз
-    for i = 1, y do turtle.down() end
-    
-    setStatus("Returned to start")
 end
 
--- Функция копания
-local function digArea(length, height, width)
-    setStatus("Mining started")
-    local x, z, y = 0, 0, 0
-    local direction = "right"
-
-    for h = 1, height do
-        for l = 1, length do
-            for w = 1, width - 1 do
-                if turtle.detect() then
-                    turtle.dig()
+-- Main mining function
+local function mine()
+    playSound("minecraft:block.note_block.bell") -- Signal start
+    print("Starting mining operation: "..length.."x"..depth.."x"..width)
+    
+    for z = 1, width do
+        for x = 1, length do
+            -- Dig down to depth or bedrock
+            for y = 1, depth do
+                if not tryDown() then
+                    returnToStart()
+                    return
                 end
-                turtle.forward()
-                if direction == "right" then x = x + 1 else x = x - 1 end
+                currentY = currentY - 1
             end
-
-            if l < length then
-                if l % 2 == 1 then
-                    turtle.turnRight()
-                    if turtle.detect() then turtle.dig() end
-                    turtle.forward()
-                    turtle.turnRight()
-                    direction = "left"
-                    z = z + 1
-                else
-                    turtle.turnLeft()
-                    if turtle.detect() then turtle.dig() end
-                    turtle.forward()
-                    turtle.turnLeft()
-                    direction = "right"
-                    z = z + 1
+            
+            -- Move back up to start Y
+            while currentY < startY do
+                tryUp()
+                currentY = currentY + 1
+            end
+            
+            -- Move to next X position
+            if x < length then
+                if not tryForward() then
+                    print("Blocked, stopping.")
+                    playSound("minecraft:block.anvil.break") -- Signal stop
+                    returnToStart()
+                    return
                 end
+                startX = startX + 1
             end
         end
-
-        if h < height then
-            if turtle.detectDown() then turtle.digDown() end
-            if not turtle.down() then
-                setStatus("Bedrock! Returning")
-                returnToStart(x, y, z, direction)
+        
+        -- Move to next Z row
+        if z < width then
+            turtle.turnRight()
+            if not tryForward() then
+                print("Blocked, stopping.")
+                playSound("minecraft:block.anvil.break") -- Signal stop
+                returnToStart()
                 return
             end
-            y = y + 1
+            turtle.turnLeft()
+            startZ = startZ + 1
+            startX = 0 -- Reset X for new row
         end
     end
-
-    dropTrash()
-    returnToStart(x, y, z, direction)
-    setStatus("Code executed")
+    
+    print("Mining complete.")
+    returnToStart()
 end
 
--- Обработчик клика по кнопке
-startButton:onClick(function()
-    -- Проверяем аргументы команды
-    if #arg < 3 then
-        setStatus("Usage: mine <length> <height> <width>")
-        return
-    end
+-- Validate and parse arguments
+if #args ~= 3 then
+    print("Usage: mine <length> <depth> <width>")
+    return
+end
 
-    local length = tonumber(arg[1])
-    local height = tonumber(arg[2])
-    local width = tonumber(arg[3])
+length = tonumber(args[1])
+depth = tonumber(args[2])
+width = tonumber(args[3])
 
-    -- Проверяем, что значения корректны
-    if not length or not height or not width or length <= 0 or height <= 0 or width <= 0 then
-        setStatus("Invalid input: values must be greater than 0, got l=" .. tostring(length) .. ", h=" .. tostring(height) .. ", w=" .. tostring(width))
-        return
-    end
+if not length or not depth or not width or length < 1 or depth < 1 or width < 1 then
+    print("Invalid dimensions. Use positive integers.")
+    return
+end
 
-    setStatus("Started mining " .. length .. "x" .. height .. "x" .. width)
-    digArea(length, height, width)
-end)
+-- Get starting Y level (relative tracking)
+startY = 0
+currentY = 0
 
--- Автообновление интерфейса
-basalt.autoUpdate()
+-- Start mining
+mine()

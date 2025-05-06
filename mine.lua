@@ -56,7 +56,6 @@ local function setStatus(text)
         elseif text:find("Code executed") then
             speaker.playSound("note.bell", 1.0, 0.6) -- Код выполнен
         end
-        -- Убрал speaker.speak из-за ошибки, оставил только playSound
     end
 end
 
@@ -174,9 +173,11 @@ end
 
 -- Обработчик клика по кнопке
 startButton:onClick(function()
-    local w = tonumber(widthInput:getValue())
-    local l = tonumber(lengthInput:getValue())
-    local h = tonumber(heightInput:getValue())
+    local w = tonumber(widthInput:getValue():match("%d+"))
+    local l = tonumber(lengthInput:getValue():match("%d+"))
+    local h = tonumber(heightInput:getValue():match("%d+"))
+    -- Отладочный вывод
+    print("Width: " .. tostring(w) .. ", Length: " .. tostring(l) .. ", Height: " .. tostring(h))
     if not w or not l or not h or w <= 0 or l <= 0 or h <= 0 then
         setStatus("Invalid input")
         return

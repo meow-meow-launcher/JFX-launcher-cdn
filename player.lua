@@ -5,8 +5,13 @@ local basalt = require("basalt")
 local monitor = peripheral.find("monitor")
 local speaker = peripheral.find("speaker")
 local modem = peripheral.find("modem")
+
+-- Debug peripheral list
+print("Available peripherals: " .. table.concat(peripheral.getNames(), ", "))
 if not speaker then
-    error("Speaker not found")
+    print("Warning: No speaker found, audio will be disabled")
+else
+    print("Speaker found on: " .. peripheral.getName(speaker))
 end
 
 -- DFPM module
@@ -121,13 +126,15 @@ end
 local function checkSpeaker()
     local speakers = findSpeakers()
     if #speakers == 0 then
-        error("No speakers found")
+        print("Warning: No speakers available, audio disabled")
+        return nil
     end
     if not activeSpeaker or not peripheral.isPresent(peripheral.getName(activeSpeaker)) then
         activeSpeaker = speakers[1]
         if modem then
             pcall(function() rednet.broadcast("Speaker changed to: " .. peripheral.getName(activeSpeaker)) end)
         end
+        print("Switched to speaker: " .. peripheral.getName(activeSpeaker))
     end
     return activeSpeaker
 end
@@ -138,6 +145,12 @@ local function playDFPM()
     isPlaying = true
     updateInterface()
     activeSpeaker = checkSpeaker()
+    if not activeSpeaker then
+        print("Cannot play: No speaker available")
+        isPlaying = false
+        updateInterface()
+        return
+    end
 
     -- Load and play in a separate thread
     parallel.waitForAny(
@@ -176,8 +189,10 @@ local function playDFPM()
 
                 local buffer = decoder(chunk)
                 activeSpeaker = checkSpeaker() -- Check for hot-swap
-                while not activeSpeaker.playAudio(buffer) do
-                    os.pullEvent("speaker_audio_empty")
+                if activeSpeaker then
+                    while not activeSpeaker.playAudio(buffer) do
+                        os.pullEvent("speaker_audio_empty")
+                    end
                 end
                 if modem then
                     pcall(function() rednet.broadcast("Playing: " .. url) end)
@@ -224,6 +239,7 @@ local function overrideSpeaker()
                 if modem then
                     pcall(function() rednet.broadcast("Speaker overridden to: " .. peripheral.getName(activeSpeaker)) end)
                 end
+                print("Overridden to speaker: " .. peripheral.getName(activeSpeaker))
                 return
             end
         end

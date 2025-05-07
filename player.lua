@@ -62,17 +62,11 @@ local loopButton = mainFrame:addButton()
     :setSize(6, 1)
     :setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
 
--- Update interface and force redraw
+-- Update interface
 local function updateInterface()
     playButton:setBackground(isPlaying and colors.green or colors.gray)
     stopButton:setBackground(not isPlaying and colors.red or colors.gray)
     loopButton:setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
-
-    -- Force redraw of buttons
-    playButton:update()
-    stopButton:update()
-    loopButton:update()
-    mainFrame:update()
 end
 
 -- Update URL from input field

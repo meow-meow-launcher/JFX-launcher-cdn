@@ -4,6 +4,7 @@ local basalt = require("basalt")
 -- Initialize peripherals
 local monitor = peripheral.find("monitor")
 local speaker = peripheral.find("speaker")
+local modem = peripheral.find("modem")
 if not speaker then
     error("Speaker not found")
 end
@@ -16,11 +17,17 @@ local decoder = dfpwm.make_decoder()
 local isPlaying = false
 local isLooping = false
 local url = ""
+local activeSpeaker = speaker
 
 -- Get URL from command-line arguments
 local args = {...}
 if #args > 0 then
     url = args[1]
+end
+
+-- Initialize rednet if modem is present
+if modem then
+    rednet.open(peripheral.getName(modem))
 end
 
 -- Create main Basalt frame
@@ -62,11 +69,19 @@ local loopButton = mainFrame:addButton()
     :setSize(6, 1)
     :setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
 
+local overrideButton = mainFrame:addButton()
+    :setText("Override")
+    :setPosition(26, 4)
+    :setSize(8, 1)
+    :setBackground(colors.gray)
+
 -- Update interface
 local function updateInterface()
     playButton:setBackground(isPlaying and colors.green or colors.gray)
     stopButton:setBackground(not isPlaying and colors.red or colors.gray)
     loopButton:setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
+    -- Update override button color based on state (e.g., green if overridden)
+    overrideButton:setBackground(colors.gray) -- Default color, can be enhanced later
 end
 
 -- Update URL from input field
@@ -74,11 +89,38 @@ urlInput:onChange(function(self)
     url = self:getValue()
 end)
 
+-- Find available speakers
+local function findSpeakers()
+    local speakers = {}
+    for _, side in ipairs(peripheral.getNames()) do
+        if peripheral.getType(side) == "speaker" then
+            table.insert(speakers, peripheral.wrap(side))
+        end
+    end
+    return speakers
+end
+
+-- Check and switch speaker
+local function checkSpeaker()
+    local speakers = findSpeakers()
+    if #speakers == 0 then
+        error("No speakers found")
+    end
+    if not activeSpeaker or not peripheral.isPresent(peripheral.getName(activeSpeaker)) then
+        activeSpeaker = speakers[1]
+        if modem then
+            rednet.broadcast("Speaker changed to: " .. peripheral.getName(activeSpeaker))
+        end
+    end
+    return activeSpeaker
+end
+
 -- Play DFPM
 local function playDFPM()
     if url == "" or isPlaying then return end
     isPlaying = true
     updateInterface()
+    activeSpeaker = checkSpeaker()
 
     -- Load and play in a separate thread
     parallel.waitForAny(
@@ -116,8 +158,12 @@ local function playDFPM()
                 end
 
                 local buffer = decoder(chunk)
-                while not speaker.playAudio(buffer) do
+                activeSpeaker = checkSpeaker() -- Check for hot-swap
+                while not activeSpeaker.playAudio(buffer) do
                     os.pullEvent("speaker_audio_empty")
+                end
+                if modem then
+                    rednet.broadcast("Playing: " .. url)
                 end
             end
             handle.close()
@@ -134,6 +180,9 @@ end
 local function stopDFPM()
     isPlaying = false
     updateInterface()
+    if modem then
+        rednet.broadcast("Stopped")
+    end
 end
 
 -- Toggle loop mode
@@ -141,6 +190,26 @@ local function toggleLoop()
     if isPlaying then
         isLooping = not isLooping
         updateInterface()
+        if modem then
+            rednet.broadcast("Looping: " .. tostring(isLooping))
+        end
+    end
+end
+
+-- Override speaker
+local function overrideSpeaker()
+    local speakers = findSpeakers()
+    if #speakers > 1 then
+        for i, spk in ipairs(speakers) do
+            if spk ~= activeSpeaker then
+                activeSpeaker = spk
+                updateInterface()
+                if modem then
+                    rednet.broadcast("Speaker overridden to: " .. peripheral.getName(activeSpeaker))
+                end
+                return
+            end
+        end
     end
 end
 
@@ -155,6 +224,10 @@ end)
 
 loopButton:onClick(function()
     toggleLoop()
+end)
+
+overrideButton:onClick(function()
+    overrideSpeaker()
 end)
 
 -- Main function

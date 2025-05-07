@@ -25,9 +25,27 @@ if #args > 0 then
     url = args[1]
 end
 
--- Initialize rednet if modem is present
-if modem then
-    rednet.open(peripheral.getName(modem))
+-- Initialize rednet for modem (wireless or Ender)
+local function initializeModem()
+    if modem then
+        local modemSide = peripheral.getName(modem)
+        print("Detected modem on side: " .. modemSide)
+        if peripheral.getType(modemSide) == "modem" then
+            rednet.open(modemSide)
+            print("Attempting to open rednet on: " .. modemSide)
+            -- Test broadcast to confirm modem functionality
+            local success = pcall(function() rednet.broadcast("Modem test message") end)
+            if success then
+                print("Modem test message sent successfully")
+            else
+                print("Failed to send test message, modem may not be functional")
+            end
+        else
+            print("Modem on " .. modemSide .. " is not of type 'modem'")
+        end
+    else
+        print("No modem detected")
+    end
 end
 
 -- Create main Basalt frame
@@ -80,8 +98,7 @@ local function updateInterface()
     playButton:setBackground(isPlaying and colors.green or colors.gray)
     stopButton:setBackground(not isPlaying and colors.red or colors.gray)
     loopButton:setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
-    -- Update override button color based on state (e.g., green if overridden)
-    overrideButton:setBackground(colors.gray) -- Default color, can be enhanced later
+    overrideButton:setBackground(colors.gray)
 end
 
 -- Update URL from input field
@@ -109,7 +126,7 @@ local function checkSpeaker()
     if not activeSpeaker or not peripheral.isPresent(peripheral.getName(activeSpeaker)) then
         activeSpeaker = speakers[1]
         if modem then
-            rednet.broadcast("Speaker changed to: " .. peripheral.getName(activeSpeaker))
+            pcall(function() rednet.broadcast("Speaker changed to: " .. peripheral.getName(activeSpeaker)) end)
         end
     end
     return activeSpeaker
@@ -163,7 +180,7 @@ local function playDFPM()
                     os.pullEvent("speaker_audio_empty")
                 end
                 if modem then
-                    rednet.broadcast("Playing: " .. url)
+                    pcall(function() rednet.broadcast("Playing: " .. url) end)
                 end
             end
             handle.close()
@@ -181,7 +198,7 @@ local function stopDFPM()
     isPlaying = false
     updateInterface()
     if modem then
-        rednet.broadcast("Stopped")
+        pcall(function() rednet.broadcast("Stopped") end)
     end
 end
 
@@ -191,7 +208,7 @@ local function toggleLoop()
         isLooping = not isLooping
         updateInterface()
         if modem then
-            rednet.broadcast("Looping: " .. tostring(isLooping))
+            pcall(function() rednet.broadcast("Looping: " .. tostring(isLooping)) end)
         end
     end
 end
@@ -205,7 +222,7 @@ local function overrideSpeaker()
                 activeSpeaker = spk
                 updateInterface()
                 if modem then
-                    rednet.broadcast("Speaker overridden to: " .. peripheral.getName(activeSpeaker))
+                    pcall(function() rednet.broadcast("Speaker overridden to: " .. peripheral.getName(activeSpeaker)) end)
                 end
                 return
             end
@@ -232,6 +249,7 @@ end)
 
 -- Main function
 local function main()
+    initializeModem() -- Initialize modem at startup
     updateInterface()
     basalt.autoUpdate()
 end

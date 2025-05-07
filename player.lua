@@ -68,7 +68,7 @@ local function drawInterface(device)
     device.setTextColor(colors.white)
     device.write("URL: " .. url)
     
-    -- Buttons
+    -- Buttons (row 1)
     local buttonY = 3
     device.setCursorPos(2, buttonY)
     
@@ -102,6 +102,14 @@ local function drawInterface(device)
     device.setCursorPos(26, buttonY)
     device.setBackgroundColor(colors.gray)
     device.write(" Override ")
+    
+    -- Second row of buttons
+    local buttonY2 = 5
+    device.setCursorPos(2, buttonY2)
+    
+    -- Init Rednet button
+    device.setBackgroundColor(colors.gray)
+    device.write(" Init Rednet ")
     
     device.setBackgroundColor(colors.black)
 end
@@ -258,37 +266,82 @@ local function overrideSpeaker()
     end
 end
 
+-- Handle rednet messages for remote control
+local function handleRednetMessages()
+    while true do
+        local id, message = rednet.receive()
+        if message then
+            print("Received rednet message: " .. message)
+            if message == "play" then
+                playDFPM()
+            elseif message == "stop" then
+                stopDFPM()
+            elseif message == "loop" then
+                toggleLoop()
+            elseif message == "override" then
+                overrideSpeaker()
+            end
+        end
+    end
+end
+
 -- Handle input
 local function handleInput()
     while true do
         local event, param1, x, y = os.pullEvent()
         
         if event == "monitor_touch" and monitor then
+            print("Monitor touch at x=" .. x .. ", y=" .. y)
             if y == 3 then
                 if x >= 2 and x <= 7 then -- Play
+                    print("Play button clicked")
                     playDFPM()
                 elseif x >= 10 and x <= 15 then -- Stop
+                    print("Stop button clicked")
                     stopDFPM()
                 elseif x >= 18 and x <= 23 then -- Loop
+                    print("Loop button clicked")
                     toggleLoop()
                 elseif x >= 26 and x <= 33 then -- Override
+                    print("Override button clicked")
                     overrideSpeaker()
                 end
+            elseif y == 5 then
+                if x >= 2 and x <= 13 then -- Init Rednet
+                    print("Init Rednet button clicked")
+                    monitor, speaker, modem = initializePeripherals()
+                    activeSpeaker = speaker
+                    updateInterface()
+                end
             elseif y == 1 then -- URL input
+                print("URL field clicked")
                 inputURL(monitor)
             end
         elseif event == "mouse_click" then
+            print("Mouse click at x=" .. x .. ", y=" .. y)
             if y == 3 then
                 if x >= 2 and x <= 7 then -- Play
+                    print("Play button clicked")
                     playDFPM()
                 elseif x >= 10 and x <= 15 then -- Stop
+                    print("Stop button clicked")
                     stopDFPM()
                 elseif x >= 18 and x <= 23 then -- Loop
+                    print("Loop button clicked")
                     toggleLoop()
                 elseif x >= 26 and x <= 33 then -- Override
+                    print("Override button clicked")
                     overrideSpeaker()
                 end
+            elseif y == 5 then
+                if x >= 2 and x <= 13 then -- Init Rednet
+                    print("Init Rednet button clicked")
+                    monitor, speaker, modem = initializePeripherals()
+                    activeSpeaker = speaker
+                    updateInterface()
+                end
             elseif y == 1 then -- URL input
+                print("URL field clicked")
                 inputURL(term)
             end
         end
@@ -298,7 +351,10 @@ end
 -- Main function
 local function main()
     updateInterface()
-    handleInput()
+    parallel.waitForAny(
+        handleInput,
+        handleRednetMessages
+    )
 end
 
 main()

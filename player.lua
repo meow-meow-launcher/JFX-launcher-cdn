@@ -1,44 +1,28 @@
--- Require Basalt
-local basalt = require("basalt")
-
 -- Initialize peripherals
-local monitor = peripheral.find("monitor")
-local speaker = peripheral.find("speaker")
-local modem = peripheral.find("modem")
+local function initializePeripherals()
+    local monitor = peripheral.find("monitor")
+    local speaker = peripheral.find("speaker")
+    local modem = peripheral.find("modem")
 
--- Debug peripheral list
-print("Available peripherals: " .. table.concat(peripheral.getNames(), ", "))
-if not speaker then
-    print("Warning: No speaker found, audio will be disabled")
-else
-    print("Speaker found on: " .. peripheral.getName(speaker))
-end
-
--- DFPM module
-local dfpwm = require("cc.audio.dfpwm")
-local decoder = dfpwm.make_decoder()
-
--- Player states
-local isPlaying = false
-local isLooping = false
-local url = ""
-local activeSpeaker = speaker
-
--- Get URL from command-line arguments
-local args = {...}
-if #args > 0 then
-    url = args[1]
-end
-
--- Initialize rednet for modem (wireless or Ender)
-local function initializeModem()
+    -- Debug peripheral list
+    print("Available peripherals: " .. table.concat(peripheral.getNames(), ", "))
+    if not speaker then
+        print("Warning: No speaker found, audio will be disabled")
+    else
+        print("Speaker found on: " .. peripheral.getName(speaker))
+    end
+    if monitor then
+        print("Monitor found on: " .. peripheral.getName(monitor))
+        monitor.setTextScale(0.5)
+    else
+        print("No monitor found, using terminal")
+    end
     if modem then
         local modemSide = peripheral.getName(modem)
         print("Detected modem on side: " .. modemSide)
         if peripheral.getType(modemSide) == "modem" then
             rednet.open(modemSide)
             print("Attempting to open rednet on: " .. modemSide)
-            -- Test broadcast to confirm modem functionality
             local success = pcall(function() rednet.broadcast("Modem test message") end)
             if success then
                 print("Modem test message sent successfully")
@@ -51,65 +35,93 @@ local function initializeModem()
     else
         print("No modem detected")
     end
+
+    return monitor, speaker, modem
 end
 
--- Create main Basalt frame
-local mainFrame
-if monitor then
-    monitor.setTextScale(0.5)
-    mainFrame = basalt.createFrame("mainFrame", monitor)
-else
-    mainFrame = basalt.createFrame("mainFrame")
+-- DFPM module
+local dfpwm = require("cc.audio.dfpwm")
+local decoder = dfpwm.make_decoder()
+
+-- Player states
+local isPlaying = false
+local isLooping = false
+local url = ""
+local activeSpeaker = nil
+
+-- Get URL from command-line arguments
+local args = {...}
+if #args > 0 then
+    url = args[1]
 end
 
--- Create interface elements
-local urlLabel = mainFrame:addLabel()
-    :setText("URL: ")
-    :setPosition(2, 2)
-    :setForeground(colors.white)
+-- Initialize peripherals
+local monitor, speaker, modem = initializePeripherals()
+activeSpeaker = speaker
 
-local urlInput = mainFrame:addInput()
-    :setPosition(7, 2)
-    :setSize(20, 1)
-    :setDefaultText(url)
-    :setForeground(colors.white)
+-- Draw interface on specified device
+local function drawInterface(device)
+    device.clear()
+    device.setCursorPos(1, 1)
+    
+    -- URL field
+    device.setTextColor(colors.white)
+    device.write("URL: " .. url)
+    
+    -- Buttons
+    local buttonY = 3
+    device.setCursorPos(2, buttonY)
+    
+    -- Play button
+    if isPlaying then
+        device.setBackgroundColor(colors.green)
+    else
+        device.setBackgroundColor(colors.gray)
+    end
+    device.write(" Play ")
+    
+    -- Stop button
+    device.setCursorPos(10, buttonY)
+    if not isPlaying then
+        device.setBackgroundColor(colors.red)
+    else
+        device.setBackgroundColor(colors.gray)
+    end
+    device.write(" Stop ")
+    
+    -- Loop button
+    device.setCursorPos(18, buttonY)
+    if isLooping and isPlaying then
+        device.setBackgroundColor(colors.yellow)
+    else
+        device.setBackgroundColor(colors.gray)
+    end
+    device.write(" Loop ")
+    
+    -- Override button
+    device.setCursorPos(26, buttonY)
+    device.setBackgroundColor(colors.gray)
+    device.write(" Override ")
+    
+    device.setBackgroundColor(colors.black)
+end
 
-local playButton = mainFrame:addButton()
-    :setText("Play")
-    :setPosition(2, 4)
-    :setSize(6, 1)
-    :setBackground(isPlaying and colors.green or colors.gray)
-
-local stopButton = mainFrame:addButton()
-    :setText("Stop")
-    :setPosition(10, 4)
-    :setSize(6, 1)
-    :setBackground(not isPlaying and colors.red or colors.gray)
-
-local loopButton = mainFrame:addButton()
-    :setText("Loop")
-    :setPosition(18, 4)
-    :setSize(6, 1)
-    :setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
-
-local overrideButton = mainFrame:addButton()
-    :setText("Override")
-    :setPosition(26, 4)
-    :setSize(8, 1)
-    :setBackground(colors.gray)
-
--- Update interface
+-- Update interface on all devices
 local function updateInterface()
-    playButton:setBackground(isPlaying and colors.green or colors.gray)
-    stopButton:setBackground(not isPlaying and colors.red or colors.gray)
-    loopButton:setBackground(isLooping and isPlaying and colors.yellow or colors.gray)
-    overrideButton:setBackground(colors.gray)
+    drawInterface(term)
+    if monitor then
+        drawInterface(monitor)
+    end
 end
 
--- Update URL from input field
-urlInput:onChange(function(self)
-    url = self:getValue()
-end)
+-- Input URL
+local function inputURL(device)
+    device.setCursorPos(6, 1)
+    device.setTextColor(colors.white)
+    device.setBackgroundColor(colors.black)
+    url = read()
+    updateInterface()
+end
 
 -- Find available speakers
 local function findSpeakers()
@@ -246,28 +258,47 @@ local function overrideSpeaker()
     end
 end
 
--- Handle events
-playButton:onClick(function()
-    playDFPM()
-end)
-
-stopButton:onClick(function()
-    stopDFPM()
-end)
-
-loopButton:onClick(function()
-    toggleLoop()
-end)
-
-overrideButton:onClick(function()
-    overrideSpeaker()
-end)
+-- Handle input
+local function handleInput()
+    while true do
+        local event, param1, x, y = os.pullEvent()
+        
+        if event == "monitor_touch" and monitor then
+            if y == 3 then
+                if x >= 2 and x <= 7 then -- Play
+                    playDFPM()
+                elseif x >= 10 and x <= 15 then -- Stop
+                    stopDFPM()
+                elseif x >= 18 and x <= 23 then -- Loop
+                    toggleLoop()
+                elseif x >= 26 and x <= 33 then -- Override
+                    overrideSpeaker()
+                end
+            elseif y == 1 then -- URL input
+                inputURL(monitor)
+            end
+        elseif event == "mouse_click" then
+            if y == 3 then
+                if x >= 2 and x <= 7 then -- Play
+                    playDFPM()
+                elseif x >= 10 and x <= 15 then -- Stop
+                    stopDFPM()
+                elseif x >= 18 and x <= 23 then -- Loop
+                    toggleLoop()
+                elseif x >= 26 and x <= 33 then -- Override
+                    overrideSpeaker()
+                end
+            elseif y == 1 then -- URL input
+                inputURL(term)
+            end
+        end
+    end
+end
 
 -- Main function
 local function main()
-    initializeModem() -- Initialize modem at startup
     updateInterface()
-    basalt.autoUpdate()
+    handleInput()
 end
 
 main()

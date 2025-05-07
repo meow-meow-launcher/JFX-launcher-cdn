@@ -161,6 +161,10 @@ end
 
 -- Stop playback
 local function stopDFPM()
+    if not isPlaying then
+        print("Already stopped")
+        return
+    end
     isPlaying = false
     print("Stopped playback")
     if modem then
@@ -176,6 +180,8 @@ local function toggleLoop()
         if modem then
             pcall(function() rednet.broadcast("Looping: " .. tostring(isLooping)) end)
         end
+    else
+        print("Cannot toggle loop: Not playing")
     end
 end
 
@@ -184,15 +190,20 @@ local function handleRednetMessages()
     while true do
         local id, message = rednet.receive()
         if message then
-            print("Received rednet message: " .. message)
+            print("Received rednet message: " .. tostring(message))
             local command, param = message:match("([^%s]+)%s*(.*)")
+            print("Parsed command: " .. tostring(command) .. ", param: " .. tostring(param))
             if command == "play" and param ~= "" then
                 playDFPM(param)
             elseif command == "stop" then
                 stopDFPM()
             elseif command == "loop" then
                 toggleLoop()
+            else
+                print("Unknown command: " .. tostring(command))
             end
+        else
+            print("Received nil message")
         end
     end
 end

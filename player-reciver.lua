@@ -151,7 +151,7 @@ local function playDFPM(newUrl)
                 -- Check for stop command during playback
                 if not isPlaying then
                     if activeSpeaker then
-                        activeSpeaker.stopAudio() -- Stop current audio if supported
+                        pcall(function() activeSpeaker.stopAudio() end) -- Stop current audio
                     end
                     break
                 end
@@ -166,20 +166,22 @@ local function playDFPM(newUrl)
     )
 end
 
--- Stop playback
+-- Stop playback and reboot
 local function stopDFPM()
     if not isPlaying then
         print("Already stopped")
-        return
+    else
+        isPlaying = false
+        print("Stopping playback immediately")
+        if activeSpeaker then
+            pcall(function() activeSpeaker.stopAudio() end) -- Attempt to stop audio immediately
+        end
+        if modem then
+            pcall(function() rednet.broadcast("Stopped") end)
+        end
     end
-    isPlaying = false
-    print("Stopping playback immediately")
-    if activeSpeaker then
-        pcall(function() activeSpeaker.stopAudio() end) -- Attempt to stop audio immediately
-    end
-    if modem then
-        pcall(function() rednet.broadcast("Stopped") end)
-    end
+    print("Rebooting receiver...")
+    os.reboot()
 end
 
 -- Toggle loop mode

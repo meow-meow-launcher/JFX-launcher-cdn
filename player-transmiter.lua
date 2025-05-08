@@ -1,4 +1,3 @@
--- edited
 -- Initialize peripherals
 local function initializePeripherals()
     local modem = peripheral.find("modem")

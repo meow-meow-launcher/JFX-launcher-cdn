@@ -90,9 +90,6 @@ local function playDFPM(newUrl)
     end
 
     print("Playing: " .. url)
-    if modem then
-        pcall(function() rednet.broadcast("play " .. url) end) -- Send only the command
-    end
 
     -- Load and play in a separate thread
     parallel.waitForAny(

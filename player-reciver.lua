@@ -1,4 +1,3 @@
--- edited
 -- Initialize peripherals
 local function initializePeripherals()
     local speaker = peripheral.find("speaker")
@@ -42,7 +41,7 @@ local decoder = dfpwm.make_decoder()
 
 -- Player states
 local isPlaying = false
-local isLooping = false
+local isLooping = false -- Explicitly set to false by default
 local url = ""
 local activeSpeaker = nil
 
@@ -80,8 +79,17 @@ end
 
 -- Play DFPM
 local function playDFPM(newUrl)
-    if newUrl then url = newUrl end
-    if url == "" or isPlaying then return end
+    if newUrl then
+        if isPlaying and url == newUrl then
+            print("Already playing this URL: " .. newUrl)
+            return
+        end
+        url = newUrl
+    end
+    if url == "" or isPlaying then
+        print("Cannot start playback: Already playing or no URL")
+        return
+    end
     isPlaying = true
     activeSpeaker = checkSpeaker()
     if not activeSpeaker then
@@ -109,6 +117,7 @@ local function playDFPM(newUrl)
                 local chunk = handle.read(16 * 1024)
                 if not chunk then
                     if isLooping then
+                        print("Looping: Restarting URL: " .. url)
                         handle.close()
                         handle = http.get(url, nil, true)
                         if not handle then

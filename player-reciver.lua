@@ -1,17 +1,10 @@
--- editeeeed
+-- falix mrazi
 -- Initialize peripherals
 local function initializePeripherals()
-    local speaker = peripheral.find("speaker")
     local modem = peripheral.find("modem")
 
     -- Debug peripheral list
     print("Available peripherals: " .. table.concat(peripheral.getNames(), ", "))
-    if not speaker then
-        print("Warning: No speaker found, audio will be disabled")
-        return nil, nil
-    else
-        print("Speaker found on: " .. peripheral.getName(speaker))
-    end
     if modem then
         local modemSide = peripheral.getName(modem)
         print("Detected modem on side: " .. modemSide)
@@ -26,14 +19,14 @@ local function initializePeripherals()
             end
         else
             print("Modem on " .. modemSide .. " is not of type 'modem'")
-            return speaker, nil
+            return nil, nil
         end
     else
         print("No modem detected")
-        return speaker, nil
+        return nil, nil
     end
 
-    return speaker, modem
+    return modem
 end
 
 -- DFPM module
@@ -44,11 +37,14 @@ local decoder = dfpwm.make_decoder()
 local isPlaying = false
 local isLooping = false -- Explicitly set to false by default
 local url = ""
-local activeSpeaker = nil
+local activeSpeakers = {} -- List of active speakers
 
 -- Initialize peripherals
-local speaker, modem = initializePeripherals()
-activeSpeaker = speaker
+local modem = initializePeripherals()
+if not modem then
+    print("Initialization failed: No modem found")
+    return
+end
 
 -- Find available speakers
 local function findSpeakers()
@@ -56,26 +52,24 @@ local function findSpeakers()
     for _, side in ipairs(peripheral.getNames()) do
         if peripheral.getType(side) == "speaker" then
             table.insert(speakers, peripheral.wrap(side))
+            print("Found speaker on: " .. side)
         end
     end
     return speakers
 end
 
--- Check and switch speaker
-local function checkSpeaker()
-    local speakers = findSpeakers()
-    if #speakers == 0 then
+-- Update active speakers list (supports hot-swap)
+local function updateSpeakers()
+    activeSpeakers = findSpeakers()
+    if #activeSpeakers == 0 then
         print("Warning: No speakers available, audio disabled")
-        return nil
+        return false
     end
-    if not activeSpeaker or not peripheral.isPresent(peripheral.getName(activeSpeaker)) then
-        activeSpeaker = speakers[1]
-        if modem then
-            pcall(function() rednet.broadcast("Speaker changed to: " .. peripheral.getName(activeSpeaker)) end)
-        end
-        print("Switched to speaker: " .. peripheral.getName(activeSpeaker))
+    print("Updated speakers list: " .. #activeSpeakers .. " speakers active")
+    if modem then
+        pcall(function() rednet.broadcast("Updated to " .. #activeSpeakers .. " speakers") end)
     end
-    return activeSpeaker
+    return true
 end
 
 -- Play DFPM
@@ -91,14 +85,14 @@ local function playDFPM(newUrl)
         print("Cannot start playback: Already playing or no URL")
         return
     end
-    isPlaying = true
-    activeSpeaker = checkSpeaker()
-    if not activeSpeaker then
-        print("Cannot play: No speaker available")
-        isPlaying = false
+
+    -- Update speakers list before playing
+    if not updateSpeakers() then
+        print("Cannot play: No speakers available")
         return
     end
 
+    isPlaying = true
     print("Playing: " .. url)
 
     -- Load and play in a separate thread
@@ -143,20 +137,28 @@ local function playDFPM(newUrl)
 
                 local buffer = decoder(chunk)
                 chunkCount = chunkCount + 1
-                activeSpeaker = checkSpeaker() -- Check for hot-swap
-                if activeSpeaker then
-                    print("Playing chunk " .. chunkCount)
+                -- Update speakers list (hot-swap support)
+                if not updateSpeakers() then
+                    isPlaying = false
+                    print("Playback stopped: No speakers available")
+                    return
+                end
+
+                -- Play on all speakers
+                for _, speaker in ipairs(activeSpeakers) do
+                    print("Playing chunk " .. chunkCount .. " on speaker: " .. peripheral.getName(speaker))
                     local waitCount = 0
-                    while not activeSpeaker.playAudio(buffer) do
+                    while not speaker.playAudio(buffer) do
                         waitCount = waitCount + 1
-                        print("Waiting for speaker to be ready (attempt " .. waitCount .. ") for chunk " .. chunkCount)
+                        print("Waiting for speaker " .. peripheral.getName(speaker) .. " to be ready (attempt " .. waitCount .. ") for chunk " .. chunkCount)
                         os.pullEvent("speaker_audio_empty")
                     end
                 end
+
                 -- Check for stop command during playback
                 if not isPlaying then
-                    if activeSpeaker then
-                        pcall(function() activeSpeaker.stopAudio() end) -- Stop current audio
+                    for _, speaker in ipairs(activeSpeakers) do
+                        pcall(function() speaker.stopAudio() end) -- Stop current audio
                     end
                     break
                 end
@@ -178,8 +180,8 @@ local function stopDFPM()
     else
         isPlaying = false
         print("Stopping playback immediately")
-        if activeSpeaker then
-            pcall(function() activeSpeaker.stopAudio() end) -- Attempt to stop audio immediately
+        for _, speaker in ipairs(activeSpeakers) do
+            pcall(function() speaker.stopAudio() end) -- Attempt to stop audio immediately
         end
     end
     print("Rebooting receiver...")
@@ -224,6 +226,12 @@ end
 
 -- Main function
 local function main()
+    -- Initial speaker discovery
+    updateSpeakers()
+    if #activeSpeakers == 0 then
+        print("No speakers found at startup, waiting for commands...")
+    end
+
     parallel.waitForAny(
         handleRednetMessages
     )

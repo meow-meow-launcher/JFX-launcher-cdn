@@ -1,3 +1,4 @@
+-- edited
 -- Initialize peripherals
 local function initializePeripherals()
     local speaker = peripheral.find("speaker")
@@ -94,6 +95,7 @@ local function playDFPM(newUrl)
     -- Load and play in a separate thread
     parallel.waitForAny(
         function()
+            print("Attempting to load URL: " .. url)
             local handle = http.get(url, nil, true) -- Binary mode
             if not handle then
                 isPlaying = false
@@ -101,6 +103,8 @@ local function playDFPM(newUrl)
                 return
             end
 
+            print("URL loaded successfully")
+            local chunkCount = 0
             while isPlaying do
                 local chunk = handle.read(16 * 1024)
                 if not chunk then
@@ -121,14 +125,21 @@ local function playDFPM(newUrl)
                     else
                         isPlaying = false
                         print("Playback ended: " .. url)
+                        print("Processed " .. chunkCount .. " chunks")
                         handle.close()
                         return
                     end
                 end
 
                 local buffer = decoder(chunk)
+                chunkCount = chunkCount + 1
                 activeSpeaker = checkSpeaker() -- Check for hot-swap
                 if activeSpeaker then
+                    print("Playing chunk " .. chunkCount)
+                    local success = activeSpeaker.playAudio(buffer)
+                    if not success then
+                        print("Failed to play audio chunk " .. chunkCount)
+                    end
                     while not activeSpeaker.playAudio(buffer) do
                         os.pullEvent("speaker_audio_empty")
                     end

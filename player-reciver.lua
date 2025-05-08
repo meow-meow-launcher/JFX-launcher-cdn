@@ -1,3 +1,4 @@
+-- editeeeed
 -- Initialize peripherals
 local function initializePeripherals()
     local speaker = peripheral.find("speaker")
@@ -145,11 +146,10 @@ local function playDFPM(newUrl)
                 activeSpeaker = checkSpeaker() -- Check for hot-swap
                 if activeSpeaker then
                     print("Playing chunk " .. chunkCount)
-                    local success = activeSpeaker.playAudio(buffer)
-                    if not success then
-                        print("Failed to play audio chunk " .. chunkCount)
-                    end
+                    local waitCount = 0
                     while not activeSpeaker.playAudio(buffer) do
+                        waitCount = waitCount + 1
+                        print("Waiting for speaker to be ready (attempt " .. waitCount .. ") for chunk " .. chunkCount)
                         os.pullEvent("speaker_audio_empty")
                     end
                 end

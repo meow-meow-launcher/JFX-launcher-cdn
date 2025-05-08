@@ -1,3 +1,4 @@
+-- edited
 -- Initialize peripherals
 local function initializePeripherals()
     local modem = peripheral.find("modem")
@@ -35,9 +36,9 @@ local function sendCommand(command)
     if modem then
         local success, error = pcall(function() rednet.broadcast(command) end)
         if success then
-            print("Sent command: " .. command)
+            print("Sent: " .. command)
         else
-            print("Failed to send command '" .. command .. "': " .. tostring(error))
+            print("Failed to send '" .. command .. "': " .. tostring(error))
         end
     end
 end
@@ -48,7 +49,7 @@ if #args > 0 then
     sendCommand(table.concat(args, " "))
 else
     while true do
-        print("Enter command (e.g., 'play https://example.com/audio.dfpwm', 'stop', 'loop', 'exit'):")
+        print("Enter command (e.g., 'play <url>', 'stop', 'loop', 'exit'):")
         local input = read()
         if input == "exit" then break end
         sendCommand(input)

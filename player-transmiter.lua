@@ -33,8 +33,12 @@ end
 -- Send command
 local function sendCommand(command)
     if modem then
-        pcall(function() rednet.broadcast(command) end)
-        print("Sent command: " .. command)
+        local success, error = pcall(function() rednet.broadcast(command) end)
+        if success then
+            print("Sent command: " .. command)
+        else
+            print("Failed to send command '" .. command .. "': " .. tostring(error))
+        end
     end
 end
 

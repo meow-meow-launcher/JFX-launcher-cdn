@@ -1,20 +1,15 @@
--- Speaker Receiver Firmware v1.2.0
+-- Speaker Receiver Firmware v1.3.0
 
--- Load modules
 local dfpwm = require("cc.audio.dfpwm")
 local decoder = dfpwm.make_decoder()
 
--- State
 local modem = peripheral.find("modem")
-local isPlaying = false
-local isLooping = false
+local isPlaying, isLooping, stopFlag = false, false, false
 local activeSpeakers = {}
 local audioURL = ""
 
--- Show firmware info
-print("Speaker Receiver Firmware v1.2.0")
+print("Speaker Receiver Firmware v1.3.0")
 
--- Open modem
 if modem then
     local name = peripheral.getName(modem)
     rednet.open(name)
@@ -24,7 +19,6 @@ else
     return
 end
 
--- Detect speakers
 local function updateSpeakers()
     activeSpeakers = {}
     for _, side in ipairs(peripheral.getNames()) do
@@ -36,7 +30,6 @@ local function updateSpeakers()
     print("Speakers updated: " .. tostring(#activeSpeakers))
 end
 
--- Play buffer to one speaker
 local function speakerWorker(speaker, bufferQueue)
     while isPlaying do
         local buffer = table.remove(bufferQueue, 1)
@@ -50,102 +43,98 @@ local function speakerWorker(speaker, bufferQueue)
     end
 end
 
--- Main playback logic
 local function playDFPWM(url)
-    if isPlaying then
-        print("Already playing")
-        return
-    end
-    if url == "" then
-        print("Empty URL")
-        return
-    end
+    if isPlaying then return end
+    if url == "" then return end
 
     audioURL = url
     isPlaying = true
+    stopFlag = false
     updateSpeakers()
-
     print("Streaming from: " .. url)
-    while isPlaying do
+
+    repeat
         local h = http.get(audioURL, nil, true)
-        if not h then
-            print("Failed to load: " .. audioURL)
-            isPlaying = false
-            return
-        end
+        if not h then break end
 
-        local bufferQueue = {}
-        local coroutines = {}
-
+        local bufferQueue, coroutines = {}, {}
         for _, speaker in ipairs(activeSpeakers) do
             table.insert(coroutines, function()
                 speakerWorker(speaker, bufferQueue)
             end)
         end
-
-        -- Decoder loop
-        local reader = function()
-            while isPlaying do
+        table.insert(coroutines, function()
+            while not stopFlag do
                 local chunk = h.read(16 * 1024)
-                if not chunk then
-                    break
-                end
+                if not chunk then break end
                 local decoded = decoder(chunk)
                 table.insert(bufferQueue, decoded)
-                os.queueEvent("audio_chunk") -- Yield
+                os.queueEvent("audio_chunk")
                 os.pullEvent("audio_chunk")
             end
-        end
-
-        table.insert(coroutines, reader)
+            h.close()
+        end)
         parallel.waitForAll(table.unpack(coroutines))
-        h.close()
+        if not isLooping then break end
+        print("Looping...")
+    until stopFlag
 
-        if not isLooping then
-            isPlaying = false
-            print("Playback finished")
-            break
-        else
-            print("Looping track...")
-        end
-    end
-end
-
--- Stop playback
-local function stopPlayback()
-    if not isPlaying then
-        print("Not playing")
-        return
-    end
     isPlaying = false
-    print("Playback stopped")
+    stopFlag = false
+    print("Playback finished")
 end
 
--- Toggle loop
+local function stopPlayback()
+    if isPlaying then
+        stopFlag = true
+        print("Stopping...")
+    end
+end
+
 local function toggleLoop()
     isLooping = not isLooping
     print("Loop mode: " .. tostring(isLooping))
 end
 
--- Handle rednet commands
+local function updateFromURL(url)
+    print("Updating from: " .. url)
+    local h = http.get(url)
+    if not h then
+        print("Failed to fetch update")
+        return
+    end
+    local content = h.readAll()
+    h.close()
+
+    local f = fs.open("receiver.lua", "w")
+    f.write(content)
+    f.close()
+    print("Update complete. Rebooting...")
+    sleep(1)
+    shell.run("receiver.lua")
+end
+
 local function listenCommands()
     while true do
         local _, msg = rednet.receive()
-        if type(msg) == "string" then
-            local cmd, arg = msg:match("([^%s]+)%s*(.*)")
-            if cmd == "play" and arg and arg ~= "" then
-                playDFPWM(arg)
-            elseif cmd == "stop" then
-                stopPlayback()
-            elseif cmd == "loop" then
-                toggleLoop()
-            else
-                print("Unknown command: " .. msg)
-            end
+        if type(msg) ~= "string" then goto continue end
+        local cmd, arg = msg:match("([^%s]+)%s*(.*)")
+        if cmd == "play" and arg ~= "" then
+            stopPlayback()
+            sleep(0.2)
+            playDFPWM(arg)
+        elseif cmd == "stop" then
+            stopPlayback()
+        elseif cmd == "loop" then
+            toggleLoop()
+        elseif cmd == "update" and arg ~= "" then
+            updateFromURL(arg)
+        else
+            print("Unknown command: " .. msg)
         end
+        ::continue::
     end
 end
 
--- Init
 updateSpeakers()
 listenCommands()

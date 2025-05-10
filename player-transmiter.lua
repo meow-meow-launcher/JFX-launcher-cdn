@@ -1,54 +1,37 @@
--- Initialize peripherals
+-- Transmitter control script
+
 local function initializePeripherals()
     local modem = peripheral.find("modem")
     if modem then
         local modemSide = peripheral.getName(modem)
         print("Detected modem on side: " .. modemSide)
-        if peripheral.getType(modemSide) == "modem" then
-            rednet.open(modemSide)
-            print("Attempting to open rednet on: " .. modemSide)
-            local success = pcall(function() rednet.broadcast("Modem test message") end)
-            if success then
-                print("Modem test message sent successfully")
-            else
-                print("Failed to send test message, modem may not be functional")
-            end
-        else
-            print("Modem on " .. modemSide .. " is not of type 'modem'")
-            return nil
-        end
+        rednet.open(modemSide)
+        print("RedNet opened on: " .. modemSide)
+        return modem
     else
         print("No modem detected")
         return nil
     end
-    return modem
 end
 
--- Initialize modem
-local modem = initializePeripherals()
-if not modem then
-    return
-end
-
--- Send command
 local function sendCommand(command)
-    if modem then
-        local success, error = pcall(function() rednet.broadcast(command) end)
-        if success then
-            print("Sent: " .. command)
-        else
-            print("Failed to send '" .. command .. "': " .. tostring(error))
-        end
+    local success, err = pcall(function() rednet.broadcast(command) end)
+    if success then
+        print("Sent: " .. command)
+    else
+        print("Failed to send: " .. tostring(err))
     end
 end
 
--- Get command from arguments or input
+local modem = initializePeripherals()
+if not modem then return end
+
 local args = {...}
 if #args > 0 then
     sendCommand(table.concat(args, " "))
 else
     while true do
-        print("Enter command (e.g., 'play <url>', 'stop', 'loop', 'exit'):")
+        write("Enter command (play <url>, stop, loop, update <url>, exit): ")
         local input = read()
         if input == "exit" then break end
         sendCommand(input)
